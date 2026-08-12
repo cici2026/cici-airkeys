@@ -13,6 +13,12 @@ target/
 # Node
 node_modules/
 
+# Claude Code. The .claude/ directories themselves are shared team config —
+# the speckit skills and settings.json are meant to be committed. Only the
+# per-developer overrides are local: settings.local.json is where Claude Code
+# records one machine's permission grants, so it differs per checkout.
+.claude/settings.local.json
+
 # Build outputs of the shared core.
 #
 # Generated Kotlin/Swift bindings and the Android .so are build artifacts: they
