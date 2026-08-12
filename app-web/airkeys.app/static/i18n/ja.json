@@ -1,0 +1,79 @@
+{
+  "common": {
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "retry": "再試行",
+    "back": "戻る",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "search": "検索",
+    "add": "追加"
+  },
+  "welcome": {
+    "tagline": "あなたの鍵を、すべての端末に。ほかのどこにも置かずに",
+    "unlockBtn": "保管庫のロックを解除",
+    "createBtn": "保管庫を作成",
+    "featureNoMasterPasswordTitle": "マスターパスワード不要",
+    "featureNoMasterPasswordBody": "端末の生体認証で解除します。覚えるものも、盗まれるものもありません。",
+    "featureLocalFirstTitle": "ローカルファースト",
+    "featureLocalFirstBody": "復号は要求した端末の中だけで行われます。同期サーバーが見るのは暗号文だけです。",
+    "featureOpenSourceTitle": "オープンソース",
+    "featureOpenSourceBody": "ひとつの Rust コア、4 つのクライアント、監査対象はひとつ。信頼する前に読めます。"
+  },
+  "unlock": {
+    "title": "ロック解除",
+    "statusChecking": "この端末を確認しています",
+    "statusAwaiting": "生体認証を待っています",
+    "statusOpening": "保管庫を開いています",
+    "waitedSeconds": "{{seconds}} 秒経過",
+    "cancelledTitle": "ロック解除を中止しました",
+    "cancelledBody": "ダイアログを閉じたため、何も解除されていません。",
+    "unsupportedTitle": "この端末では解除できません",
+    "unsupportedBody": "生体認証もパスコードも登録されていません。システム設定で登録してからやり直してください。",
+    "failedTitle": "解除できませんでした",
+    "failedBody": "保管庫はロックされたままです。詳細: {{detail}}",
+    "missingTitle": "この端末に保管庫がありません",
+    "missingBody": "保管庫を作成するか、別の端末から復元してください。"
+  },
+  "vault": {
+    "navItems": "すべての項目",
+    "navFavorites": "お気に入り",
+    "navGenerator": "ジェネレーター",
+    "navSettings": "設定",
+    "lockNow": "今すぐロック",
+    "searchPlaceholder": "項目を検索",
+    "itemCount_other": "{{count}} 件",
+    "emptyTitle": "まだ何もありません",
+    "emptyBody": "追加した項目が新しい順に表示されます。",
+    "noMatchTitle": "該当なし",
+    "noMatchBody": "この保管庫に「{{query}}」に一致する項目はありません。"
+  },
+  "item": {
+    "kindLogin": "ログイン",
+    "kindNote": "セキュアメモ",
+    "kindKey": "鍵",
+    "kindCard": "カード",
+    "labelAccount": "アカウント",
+    "labelSite": "サイト",
+    "labelSecret": "シークレット",
+    "labelUpdated": "更新日",
+    "reveal": "表示",
+    "hide": "非表示",
+    "copySecret": "シークレットをコピー",
+    "copyAccount": "アカウントをコピー",
+    "clipboardCleared": "クリップボードを消去しました"
+  },
+  "strength": {
+    "weak": "弱い",
+    "fair": "ふつう",
+    "strong": "強い",
+    "excellent": "非常に強い",
+    "bits": "エントロピー約 {{bits}} ビット",
+    "hintTooShort": "短すぎます — 12 文字以上を目安に",
+    "hintNoUppercase": "大文字を入れてください",
+    "hintNoDigits": "数字を入れてください",
+    "hintNoSymbols": "記号を入れてください",
+    "hintRepeated": "同じ文字の連続は避けてください",
+    "hintSequential": "abc や 123 のような連続は避けてください"
+  }
+}

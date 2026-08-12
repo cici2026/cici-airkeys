@@ -1,0 +1,35 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_i18n_free: (a: number, b: number) => void;
+export const __wbg_itemlistcore_free: (a: number, b: number) => void;
+export const __wbg_unlockcore_free: (a: number, b: number) => void;
+export const from_base64url: (a: number, b: number) => [number, number, number, number];
+export const from_hex: (a: number, b: number) => [number, number, number, number];
+export const i18n_change_language: (a: number, b: number, c: number) => [number, number, number];
+export const i18n_language: (a: number) => [number, number];
+export const i18n_load_catalog_json: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const i18n_new: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const i18n_t: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+export const item_fingerprint: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+export const itemlistcore_dispatch: (a: number, b: number, c: number) => [number, number, number, number];
+export const itemlistcore_new: () => number;
+export const itemlistcore_resolve_effect: (a: number, b: bigint, c: number, d: number) => [number, number, number, number];
+export const itemlistcore_view: (a: number) => [number, number, number, number];
+export const resolve_language: (a: number, b: number) => [number, number, number];
+export const secret_strength: (a: number, b: number) => [number, number, number];
+export const sha256: (a: number, b: number) => [number, number];
+export const supported_languages: () => [number, number];
+export const to_base64url: (a: number, b: number) => [number, number];
+export const to_hex: (a: number, b: number, c: number) => [number, number];
+export const unlockcore_dispatch: (a: number, b: number, c: number) => [number, number, number, number];
+export const unlockcore_new: () => number;
+export const unlockcore_resolve_effect: (a: number, b: bigint, c: number, d: number) => [number, number, number, number];
+export const unlockcore_view: (a: number) => [number, number, number, number];
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __externref_drop_slice: (a: number, b: number) => void;
+export const __wbindgen_start: () => void;

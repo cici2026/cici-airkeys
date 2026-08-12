@@ -1,0 +1,9 @@
+{
+  "files": [
+    "airkeys_core.d.ts",
+    "airkeys_core.js",
+    "airkeys_core_bg.wasm",
+    "airkeys_core_bg.wasm.d.ts"
+  ],
+  "sha256": "b7b9226935926720208b55f4eab247fd2711f4b7c5c2ba261e41c6bf57bba592"
+}

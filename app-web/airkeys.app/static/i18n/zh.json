@@ -1,0 +1,79 @@
+{
+  "common": {
+    "cancel": "取消",
+    "close": "关闭",
+    "retry": "重试",
+    "back": "返回",
+    "copy": "复制",
+    "copied": "已复制",
+    "search": "搜索",
+    "add": "添加"
+  },
+  "welcome": {
+    "tagline": "你的密钥，在你的每台设备上，只在你的设备上",
+    "unlockBtn": "解锁密钥库",
+    "createBtn": "创建密钥库",
+    "featureNoMasterPasswordTitle": "不用主密码",
+    "featureNoMasterPasswordBody": "用设备生物识别解锁，没有需要记住的口令，也没有可被钓走的口令。",
+    "featureLocalFirstTitle": "本地优先",
+    "featureLocalFirstBody": "密文只在发起请求的设备上解密，同步服务器自始至终只看得到密文。",
+    "featureOpenSourceTitle": "开源可审计",
+    "featureOpenSourceBody": "一个 Rust 内核，四个客户端，一处审计面。先读代码，再谈信任。"
+  },
+  "unlock": {
+    "title": "解锁",
+    "statusChecking": "正在检查这台设备",
+    "statusAwaiting": "正在等待指纹验证",
+    "statusOpening": "正在打开密钥库",
+    "waitedSeconds": "已等待 {{seconds}} 秒",
+    "cancelledTitle": "解锁已取消",
+    "cancelledBody": "你关闭了系统弹窗，没有任何内容被解锁。",
+    "unsupportedTitle": "这台设备无法解锁密钥库",
+    "unsupportedBody": "尚未录入生物识别或设备密码。请先在系统设置中设置，然后重试。",
+    "failedTitle": "解锁失败",
+    "failedBody": "密钥库保持锁定状态。详情：{{detail}}",
+    "missingTitle": "这台设备上没有密钥库",
+    "missingBody": "请创建一个密钥库，或从另一台设备恢复。"
+  },
+  "vault": {
+    "navItems": "全部条目",
+    "navFavorites": "收藏",
+    "navGenerator": "生成器",
+    "navSettings": "设置",
+    "lockNow": "立即锁定",
+    "searchPlaceholder": "搜索条目",
+    "itemCount_other": "{{count}} 个条目",
+    "emptyTitle": "这里还是空的",
+    "emptyBody": "你添加的条目会显示在这里，最新的排在最前。",
+    "noMatchTitle": "没有匹配项",
+    "noMatchBody": "这个密钥库里没有匹配“{{query}}”的条目。"
+  },
+  "item": {
+    "kindLogin": "登录",
+    "kindNote": "安全备注",
+    "kindKey": "密钥",
+    "kindCard": "银行卡",
+    "labelAccount": "账号",
+    "labelSite": "站点",
+    "labelSecret": "密文",
+    "labelUpdated": "更新于",
+    "reveal": "显示",
+    "hide": "隐藏",
+    "copySecret": "复制密文",
+    "copyAccount": "复制账号",
+    "clipboardCleared": "剪贴板已清空"
+  },
+  "strength": {
+    "weak": "弱",
+    "fair": "一般",
+    "strong": "强",
+    "excellent": "极强",
+    "bits": "约 {{bits}} 比特熵",
+    "hintTooShort": "太短了——建议至少 12 个字符",
+    "hintNoUppercase": "加一个大写字母",
+    "hintNoDigits": "加一个数字",
+    "hintNoSymbols": "加一个符号",
+    "hintRepeated": "避免连续重复同一个字符",
+    "hintSequential": "避免 abc、123 这类连续序列"
+  }
+}

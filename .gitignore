@@ -12,3 +12,23 @@ target/
 
 # Node
 node_modules/
+
+# Build outputs of the shared core.
+#
+# Generated Kotlin/Swift bindings and the Android .so are build artifacts: they
+# are regenerated from the compiled library by rust/scripts/build-*.sh, and a
+# committed binary is one nobody can reproduce. The Swift *sources* under
+# app-ios/AirkeysCoreKit/Sources/ are the exception — Xcode needs them in the
+# package, and they review like code.
+rust/bindings/
+rust/harness/kotlin/build/
+rust/harness/swift/.build/
+app-android/Airkeys/app/src/main/jniLibs/
+app-ios/AirkeysCoreKit/Artifacts/
+
+# NOT ignored, on purpose — these are generated AND committed, with a --check
+# drift gate in CI (see rust/README.md, rule 4):
+#   rust/pkg-web/
+#   rust/crates/airkeys-core/src/i18n_catalogs/
+#   app-web/airkeys.app/static/i18n/
+#   app-web/airkeys.app/src/lib/core/generated/

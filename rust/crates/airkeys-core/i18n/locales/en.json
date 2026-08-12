@@ -1,0 +1,80 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "retry": "Try again",
+    "back": "Back",
+    "copy": "Copy",
+    "copied": "Copied",
+    "search": "Search",
+    "add": "Add"
+  },
+  "welcome": {
+    "tagline": "Your keys, on every device, and nowhere else",
+    "unlockBtn": "Unlock vault",
+    "createBtn": "Create a vault",
+    "featureNoMasterPasswordTitle": "No master password",
+    "featureNoMasterPasswordBody": "Your device biometrics unlock the vault. Nothing to remember, nothing to phish.",
+    "featureLocalFirstTitle": "Local first",
+    "featureLocalFirstBody": "Secrets are decrypted on the device that asked. The sync server only ever sees ciphertext.",
+    "featureOpenSourceTitle": "Open source",
+    "featureOpenSourceBody": "One Rust core, four clients, one audit surface. Read it before you trust it."
+  },
+  "unlock": {
+    "title": "Unlock",
+    "statusChecking": "Checking this device",
+    "statusAwaiting": "Waiting for your fingerprint",
+    "statusOpening": "Opening the vault",
+    "waitedSeconds": "Waited {{seconds}}s",
+    "cancelledTitle": "Unlock cancelled",
+    "cancelledBody": "You dismissed the prompt. Nothing was unlocked.",
+    "unsupportedTitle": "This device cannot unlock a vault",
+    "unsupportedBody": "No biometric or device passcode is enrolled. Set one up in system settings, then try again.",
+    "failedTitle": "Could not unlock",
+    "failedBody": "The vault stayed locked. Details: {{detail}}",
+    "missingTitle": "No vault on this device",
+    "missingBody": "Create a vault, or restore one from another device."
+  },
+  "vault": {
+    "navItems": "All items",
+    "navFavorites": "Favorites",
+    "navGenerator": "Generator",
+    "navSettings": "Settings",
+    "lockNow": "Lock now",
+    "searchPlaceholder": "Search items",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "emptyTitle": "Nothing here yet",
+    "emptyBody": "Items you add show up here, newest first.",
+    "noMatchTitle": "No matches",
+    "noMatchBody": "Nothing matches “{{query}}” in this vault."
+  },
+  "item": {
+    "kindLogin": "Login",
+    "kindNote": "Secure note",
+    "kindKey": "Key",
+    "kindCard": "Card",
+    "labelAccount": "Account",
+    "labelSite": "Site",
+    "labelSecret": "Secret",
+    "labelUpdated": "Updated",
+    "reveal": "Reveal",
+    "hide": "Hide",
+    "copySecret": "Copy secret",
+    "copyAccount": "Copy account",
+    "clipboardCleared": "Clipboard cleared"
+  },
+  "strength": {
+    "weak": "Weak",
+    "fair": "Fair",
+    "strong": "Strong",
+    "excellent": "Excellent",
+    "bits": "{{bits}} bits of entropy",
+    "hintTooShort": "Too short — aim for 12 characters or more",
+    "hintNoUppercase": "Add a capital letter",
+    "hintNoDigits": "Add a digit",
+    "hintNoSymbols": "Add a symbol",
+    "hintRepeated": "Avoid repeating the same character",
+    "hintSequential": "Avoid runs like abc or 123"
+  }
+}
