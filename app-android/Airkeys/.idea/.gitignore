@@ -1,3 +1,5 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+# Per-developer state: which physical device is selected in the run dropdown.
+/deploymentTargetSelector.xml
