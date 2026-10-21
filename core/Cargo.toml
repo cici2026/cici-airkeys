@@ -1,0 +1,31 @@
+# The Airkeys core: everything the phone decides and computes.
+#
+#   wallet   keys, addresses, transactions, the wire protocol — pure functions, no I/O
+#   app      the Crux app (screens, flows) and the runtime the iOS and Android shells drive
+#   bindgen  uniffi's binding generator; build time only, never linked into an app
+[workspace]
+resolver = "3"
+members = ["wallet", "app", "bindgen"]
+default-members = ["wallet", "app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.88"
+
+[workspace.dependencies]
+airkeys-wallet = { path = "wallet" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+zeroize = { version = "1.8", features = ["serde"] }
+crux_core = "0.20"
+uniffi = "0.32"
+# Lumen Code v1, the screen-to-camera transfer. Zero dependencies. Pinned to a commit.
+lumen-code = { git = "https://github.com/atshelchin/lumen-code", rev = "4bc5f2bb1555cd40a10fb7da4ea9c8db018849c8" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

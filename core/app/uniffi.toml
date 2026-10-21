@@ -1,0 +1,7 @@
+[bindings.kotlin]
+package_name = "app.airkeys.core"
+
+[bindings.swift]
+module_name = "AirkeysCore"
+ffi_module_name = "AirkeysFFI"
+ffi_module_filename = "AirkeysFFI"

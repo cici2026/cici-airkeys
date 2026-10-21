@@ -1,0 +1,220 @@
+{
+  "bitcoin": {
+    "name": "Bitcoin",
+    "symbol": "BTC",
+    "decimals": 8,
+    "api": "https://mempool.space/api",
+    "fallback": "https://blockstream.info/api",
+    "explorer": {
+      "tx": "https://mempool.space/tx/{}",
+      "address": "https://mempool.space/address/{}"
+    }
+  },
+  "evm": [
+    {
+      "chainId": 1,
+      "name": "Ethereum",
+      "symbol": "ETH",
+      "decimals": 18,
+      "rpc": "https://ethereum-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://etherscan.io/tx/{}",
+        "address": "https://etherscan.io/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "symbol": "USDT",
+          "decimals": 6
+        },
+        {
+          "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+          "symbol": "DAI",
+          "decimals": 18
+        },
+        {
+          "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "symbol": "WETH",
+          "decimals": 18
+        },
+        {
+          "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+          "symbol": "WBTC",
+          "decimals": 8
+        }
+      ]
+    },
+    {
+      "chainId": 8453,
+      "name": "Base",
+      "symbol": "ETH",
+      "decimals": 18,
+      "rpc": "https://base-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://basescan.org/tx/{}",
+        "address": "https://basescan.org/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0x4200000000000000000000000000000000000006",
+          "symbol": "WETH",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chainId": 42161,
+      "name": "Arbitrum One",
+      "symbol": "ETH",
+      "decimals": 18,
+      "rpc": "https://arbitrum-one-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://arbiscan.io/tx/{}",
+        "address": "https://arbiscan.io/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "symbol": "USDT",
+          "decimals": 6
+        },
+        {
+          "address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+          "symbol": "WETH",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chainId": 10,
+      "name": "OP Mainnet",
+      "symbol": "ETH",
+      "decimals": 18,
+      "rpc": "https://optimism-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://optimistic.etherscan.io/tx/{}",
+        "address": "https://optimistic.etherscan.io/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+          "symbol": "USDT",
+          "decimals": 6
+        },
+        {
+          "address": "0x4200000000000000000000000000000000000006",
+          "symbol": "WETH",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chainId": 137,
+      "name": "Polygon",
+      "symbol": "POL",
+      "decimals": 18,
+      "rpc": "https://polygon-bor-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://polygonscan.com/tx/{}",
+        "address": "https://polygonscan.com/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "symbol": "USDT",
+          "decimals": 6
+        }
+      ]
+    },
+    {
+      "chainId": 56,
+      "name": "BNB Smart Chain",
+      "symbol": "BNB",
+      "decimals": 18,
+      "rpc": "https://bsc-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://bscscan.com/tx/{}",
+        "address": "https://bscscan.com/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0x55d398326f99059fF775485246999027B3197955",
+          "symbol": "USDT",
+          "decimals": 18
+        },
+        {
+          "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "symbol": "USDC",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chainId": 43114,
+      "name": "Avalanche C-Chain",
+      "symbol": "AVAX",
+      "decimals": 18,
+      "rpc": "https://avalanche-c-chain-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://snowtrace.io/tx/{}",
+        "address": "https://snowtrace.io/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+          "symbol": "USDC",
+          "decimals": 6
+        },
+        {
+          "address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+          "symbol": "USDT",
+          "decimals": 6
+        }
+      ]
+    },
+    {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "symbol": "ETH",
+      "decimals": 18,
+      "testnet": true,
+      "rpc": "https://ethereum-sepolia-rpc.publicnode.com",
+      "explorer": {
+        "tx": "https://sepolia.etherscan.io/tx/{}",
+        "address": "https://sepolia.etherscan.io/address/{}"
+      },
+      "tokens": [
+        {
+          "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+          "symbol": "USDC",
+          "decimals": 6
+        }
+      ]
+    }
+  ]
+}

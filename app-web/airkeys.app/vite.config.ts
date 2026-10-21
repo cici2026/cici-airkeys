@@ -1,44 +1,23 @@
 import { defineConfig } from 'vitest/config';
-import { playwright } from '@vitest/browser-playwright';
-import adapter from '@sveltejs/adapter-cloudflare';
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+
+// AIRKEYS_EXTENSION=1 builds the browser extension (scripts/extension.mjs): the app alone,
+// hash-routed into one page, because an extension serves files, not routes
+const extension = process.env.AIRKEYS_EXTENSION === '1';
 
 export default defineConfig({
 	plugins: [
 		sveltekit({
-			compilerOptions: {
-				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
-			},
-			adapter: adapter()
+			compilerOptions: { runes: true },
+			// a static site: host the build/ folder anywhere
+			adapter: extension ? adapter({ pages: 'extension', assets: 'extension', fallback: 'index.html' }) : adapter({ fallback: '404.html' }),
+			// browser extensions refuse folder names that start with "_"
+			appDir: 'app-kit',
+			...(extension ? { files: { routes: 'src/extension' }, router: { type: 'hash' as const } } : {})
 		})
 	],
-	test: {
-		expect: { requireAssertions: true },
-		projects: [
-			{
-				extends: './vite.config.ts',
-				test: {
-					name: 'client',
-					browser: {
-						enabled: true,
-						provider: playwright(),
-						instances: [{ browser: 'chromium', headless: true }]
-					},
-					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-					exclude: ['src/lib/server/**']
-				}
-			},
-
-			{
-				extends: './vite.config.ts',
-				test: {
-					name: 'server',
-					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
-				}
-			}
-		]
-	}
+	// registry/networks.json is shared with the phone's core, at the repository root
+	server: { fs: { allow: ['../..'] } },
+	test: { include: ['src/**/*.test.ts'], environment: 'node' }
 });

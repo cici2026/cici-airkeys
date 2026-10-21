@@ -1,0 +1,6 @@
+Airkeys.xcodeproj/
+# built by core/scripts/build-ios.sh
+AirkeysCoreKit/Artifacts/
+AirkeysCoreKit/Sources/AirkeysCore/AirkeysCore.swift
+build/
+build-device/

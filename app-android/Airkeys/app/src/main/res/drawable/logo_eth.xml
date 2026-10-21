@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ethereum's logo: cryptocurrency-icons 0.18.1, svg/color/eth.svg (CC0-1.0). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path android:fillColor="#627EEA" android:pathData="M16,0A16,16 0,1 1,16 32A16,16 0,1 1,16 0Z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.602" android:pathData="M16.498 4v8.87l7.497 3.35z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M16.498 4L9 16.22l7.498-3.35z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.602" android:pathData="M16.498 21.968v6.027L24 17.616z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M16.498 27.995v-6.028L9 17.616z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.2" android:pathData="M16.498 20.573l7.497-4.353-7.497-3.348z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.602" android:pathData="M9 16.22l7.498 4.353v-7.701z" />
+</vector>

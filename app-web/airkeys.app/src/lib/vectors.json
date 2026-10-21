@@ -1,0 +1,54 @@
+{
+	"bitcoin": [
+		{
+			"address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+			"script": "0014751e76e8199196d454941c45d1b3a323f1433bd6"
+		},
+		{
+			"address": "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3",
+			"script": "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262"
+		},
+		{
+			"address": "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0",
+			"script": "512079be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+		},
+		{
+			"address": "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+			"script": "76a91477bff20c60e522dfaa3350c39b030a5d004e839a88ac"
+		},
+		{
+			"address": "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+			"script": "a914b472a266d0bd89c13706a4132ccfb16f7c3b9fcb87"
+		},
+		{
+			"address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5",
+			"script": null
+		},
+		{
+			"address": "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+			"script": null
+		},
+		{
+			"address": "bc1zw508d6qejxtdg4y5r3zarvaryvaxxpcs",
+			"script": null
+		}
+	],
+	"evm": [
+		{
+			"address": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+			"checksum": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+		},
+		{
+			"address": "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed",
+			"checksum": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+		},
+		{
+			"address": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD",
+			"checksum": null
+		},
+		{
+			"address": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeA",
+			"checksum": null
+		}
+	]
+}

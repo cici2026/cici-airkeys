@@ -22,6 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Air keys"
+rootProject.name = "Airkeys"
 include(":app")
- 

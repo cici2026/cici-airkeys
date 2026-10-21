@@ -5,7 +5,6 @@
 xcuserdata/
 *.xcuserstate
 DerivedData/
-*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
 # Rust
 target/
@@ -13,28 +12,12 @@ target/
 # Node
 node_modules/
 
-# Claude Code. The .claude/ directories themselves are shared team config —
-# the speckit skills and settings.json are meant to be committed. Only the
-# per-developer overrides are local: settings.local.json is where Claude Code
-# records one machine's permission grants, so it differs per checkout.
+# Claude Code: .claude/ is shared config; settings.local.json holds one machine's permission
+# grants.
 .claude/settings.local.json
 
-# Build outputs of the shared core.
-#
-# Generated Kotlin/Swift bindings and the Android .so are build artifacts: they
-# are regenerated from the compiled library by rust/scripts/build-*.sh, and a
-# committed binary is one nobody can reproduce. The Swift *sources* under
-# app-ios/AirkeysCoreKit/Sources/ are the exception — Xcode needs them in the
-# package, and they review like code.
-rust/bindings/
-rust/harness/kotlin/build/
-rust/harness/swift/.build/
-app-android/Airkeys/app/src/main/jniLibs/
-app-ios/AirkeysCoreKit/Artifacts/
+# Build outputs — generated bindings, native libraries, app builds — are ignored next to where
+# they are made: app-android/Airkeys/.gitignore, app-ios/.gitignore, app-web/airkeys.app/.gitignore.
 
-# NOT ignored, on purpose — these are generated AND committed, with a --check
-# drift gate in CI (see rust/README.md, rule 4):
-#   rust/pkg-web/
-#   rust/crates/airkeys-core/src/i18n_catalogs/
-#   app-web/airkeys.app/static/i18n/
-#   app-web/airkeys.app/src/lib/core/generated/
+# The brief this repository was first built from: notes, superseded by docs/
+/draft.md

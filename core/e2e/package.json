@@ -1,0 +1,11 @@
+{
+  "name": "airkeys-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end checks of what the phone signs, against real chain software.",
+  "scripts": {
+    "evm": "node evm.mjs",
+    "bitcoin": "node bitcoin.mjs",
+    "recovery": "node recovery.mjs"
+  }
+}

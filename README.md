@@ -1,59 +1,84 @@
 # Airkeys
 
-A credential manager on four clients and **one** shared Rust core.
+A cold wallet for a phone that stays offline. It shows the world **addresses — never a
+public key** — so the funds behind them stay out of reach, even of a quantum computer.
+
+- **Phone apps** (Android, iOS) hold your recovery phrase in memory only, refuse to run while
+  any radio is on, and sign transfers only, after showing every recipient, amount and fee.
+- **Web app** (a static site, also a browser extension) reads balances, prepares transfers and
+  broadcasts them. It only ever holds addresses.
+- They talk through animated codes ([Lumen Code](https://github.com/atshelchin/lumen-code)):
+  one screen shows, the other camera reads. Every message is readable JSON
+  ([protocol](docs/PROTOCOL.md)).
+
+Networks: **Bitcoin** (BTC) and **Ethereum and EVM chains** (ETH and ERC-20 tokens on
+Ethereum, Base, Arbitrum, OP, Polygon, BNB, Avalanche, Sepolia, and any chain you add).
+
+## Why
+
+A quantum computer that breaks elliptic curves recovers a private key from its public key.
+Bitcoin and Ethereum addresses are hashes of public keys: an address that has never sent
+keeps its key unknown. But every mainstream way of connecting a hardware wallet hands the
+computer public keys — Ledger with every address, MetaMask by taking Trezor's extended key,
+QR wallets by syncing extended keys. Airkeys sends addresses only, derives every account on
+a fully hardened path, and when you spend, moves what stays behind to a fresh account in the
+same signing. → [Design](docs/DESIGN.md)
+
+## Repository
 
 ```
-airkeys/
-├─ rust/                       the shared core — every decision lives here
-│  ├─ crates/airkeys-core            pure kernels + Crux state machines
-│  ├─ crates/airkeys-core-uniffi     → Kotlin (Android) + Swift (iOS)
-│  ├─ crates/airkeys-core-wasm       → the web app
-│  ├─ scripts/                       generate, build, smoke
-│  └─ harness/{kotlin,swift}         conformance replay through the bindings
-├─ app-desktop/airkeys-wallet   GPUI — links the core natively, no FFI
-├─ app-web/airkeys.app          SvelteKit — drives the core through wasm
-├─ app-ios/Airkeys              SwiftUI
-├─ app-android/Airkeys          Compose
-└─ design/                      mocks and tokens
+docs/            PROTOCOL.md (the wire protocol), DESIGN.md (decisions, threat model, limits),
+                 RECOVERY.md (getting your funds back without Airkeys)
+registry/        networks.json — chains and tokens, shared by the phone's core and the web app
+core/            Rust: the phone's whole brain, shared by iOS and Android
+  wallet/          keys, addresses, transactions, protocol checks — pure functions
+  app/             the Crux app (every screen and rule) + the runtime the shells call (uniffi)
+  e2e/             signing and recovery checked against Bitcoin Core and an Ethereum fork
+app-android/     Jetpack Compose shell
+app-ios/         SwiftUI shell
+app-web/         SvelteKit static site: landing page, web app, browser extension
 ```
 
-## Where does this code go?
+The shells draw the core's view and perform what it asks (camera, screen); every decision —
+which screen, what it says, what may be signed — is in `core/`.
 
-The one question worth answering before every change.
+## Build
 
-| The change is about… | It goes in |
-|---|---|
-| what *should happen* — a rule, a state transition, a validation | `rust/crates/airkeys-core` |
-| performing something — storage, network, biometrics, clipboard, timers | the platform shell |
-| how it *looks* — colour, spacing, type | that client's theme module |
-| what it *says* | `rust/crates/airkeys-core/i18n/locales/*.json` |
+| What | Needs | Command |
+|---|---|---|
+| Core tests | Rust (pinned in `core/rust-toolchain.toml`) | `cd core && cargo test --workspace --release` |
+| Android app | JDK 17+, Android SDK + NDK, `cargo install cargo-ndk` | `cd app-android/Airkeys && ./gradlew :app:assembleRelease` |
+| iOS app | Xcode 26, `brew install xcodegen` | `core/scripts/build-ios.sh && cd app-ios && xcodegen && open Airkeys.xcodeproj` |
+| Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `build/` |
+| Browser extension | the same | `bun run extension` → `extension/` (load unpacked) |
 
-A rule in a UI layer is a rule three other clients do not have. When something
-feels like UI but is really a decision — "is a second unlock press allowed?",
-"when is the clipboard wiped?" — it belongs in the core, where it is tested in
-microseconds and shared by everyone.
+Self-hosting the web app is copying `build/` to any static host — or opening it from disk.
+Its chain endpoints are in Settings; point them at your own nodes.
 
-## Start here
+## Verification
 
-- **[rust/README.md](rust/README.md)** — the five rules the whole repo follows,
-  the state-machine boundary, and every command.
-- **[app-desktop/airkeys-wallet/README.md](app-desktop/airkeys-wallet/README.md)** —
-  the GPUI layering, the env pins, and the gpui quirks that will bite you.
+Everything below runs, and passes, on this tree:
 
-## Verify it end to end
+```sh
+cd core
+cargo test --workspace --release        # 47 tests: BIP-39/32, addresses vs. independent tools, hostile requests,
+                                        # protocol checks, app flows through the real FFI object
+cargo clippy --workspace --all-targets -- -D warnings
+node e2e/evm.mjs                        # anvil fork of mainnet: USDC, USDT, ETH, EIP-1559 + legacy
+BITCOIND=… node e2e/bitcoin.mjs         # Bitcoin Core regtest: P2TR/P2PKH/P2SH outputs, fee-attack refusal
+BITCOIND=… node e2e/recovery.mjs        # docs/RECOVERY.md's recipes find the same accounts
 
-```bash
-cd rust
-cargo test --workspace --features airkeys-core/i18n-all,airkeys-core/crux
-cargo clippy --workspace --all-targets --features airkeys-core/i18n-all,airkeys-core/crux -- -D warnings
-node scripts/gen-i18n.mjs --check          # generated catalogs match the corpus
-node scripts/gen-core-types.mjs --check    # generated TypeScript matches the Rust
-node scripts/build-web.mjs --check         # the committed wasm matches the source
-scripts/smoke-swift.sh                     # the same facts, through the Swift bindings
-scripts/smoke-kotlin.sh                    # …and the Kotlin ones
-cargo tree -p airkeys-core-uniffi | grep -c crux   # must be 0
-
-cd ../app-desktop/airkeys-wallet
-cargo test && cargo run
-AIRKEYS_GALLERY=1 cargo run                # every screen state, listed
+cd ../app-web/airkeys.app
+bun run test                            # web logic vs. the core's vectors
+BITCOIND=… bun scripts/chains/bitcoin.ts   # the web app's Bitcoin client against Bitcoin Core
+node scripts/e2e.mjs                    # the whole system: web app in Chrome with a fake webcam showing
+                                        # the phone's real screen, against an Ethereum fork
+cd ../../app-ios && xcodebuild -scheme Airkeys -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
+
+See [docs/DESIGN.md § What is verified](docs/DESIGN.md#what-is-verified) for what each check
+proves and what remains untested.
+
+## License
+
+MIT.

@@ -1,0 +1,21 @@
+[package]
+name = "airkeys-wallet"
+description = "Airkeys wallet logic: BIP-39 phrases, hardened key derivation, addresses and transfer transactions for Bitcoin and EVM chains, and the Airkeys wire protocol. Pure: no I/O, no clock, no randomness."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+zeroize = { workspace = true }
+# Primitives come from RustCrypto; this crate only composes them.
+k256 = { version = "0.14", default-features = false, features = ["ecdsa", "std"] }
+sha2 = "0.11"
+sha3 = "0.12"
+hmac = "0.13"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+ripemd = "0.2"
+bs58 = { version = "0.5", features = ["check"] }
+bech32 = "0.12"
