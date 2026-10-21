@@ -1,7 +1,18 @@
 # Airkeys
 
+[![CI](https://github.com/mondaylabsltd/airkeys/actions/workflows/ci.yml/badge.svg)](https://github.com/mondaylabsltd/airkeys/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Protocol v1](https://img.shields.io/badge/protocol-v1-orange.svg)](docs/PROTOCOL.md)
+
 A cold wallet for a phone that stays offline. It shows the world **addresses — never a
 public key** — so the funds behind them stay out of reach, even of a quantum computer.
+
+> [!WARNING]
+> Airkeys is young (0.x) and has had no third-party audit. Try it with small amounts first,
+> keep your recovery phrase backed up independently, and read [what is and is not
+> verified](docs/DESIGN.md#what-is-verified).
+
+![The phone app: welcome, accounts, reviewing a transfer, the code for the web app, and what it says](docs/img/phone.jpg)
 
 - **Phone apps** (Android, iOS) hold your recovery phrase in memory only, refuse to run while
   any radio is on, and sign transfers only, after showing every recipient, amount and fee.
@@ -13,6 +24,8 @@ public key** — so the funds behind them stay out of reach, even of a quantum c
 
 Networks: **Bitcoin** (BTC) and **Ethereum and EVM chains** (ETH and ERC-20 tokens on
 Ethereum, Base, Arbitrum, OP, Polygon, BNB, Avalanche, Sepolia, and any chain you add).
+
+![The web app: an account's balances, and a transfer request shown to the phone](docs/img/web.jpg)
 
 ## Why
 
@@ -47,21 +60,22 @@ which screen, what it says, what may be signed — is in `core/`.
 | What | Needs | Command |
 |---|---|---|
 | Core tests | Rust (pinned in `core/rust-toolchain.toml`) | `cd core && cargo test --workspace --release` |
-| Android app | JDK 17+, Android SDK + NDK, `cargo install cargo-ndk` | `cd app-android/Airkeys && ./gradlew :app:assembleRelease` |
-| iOS app | Xcode 26, `brew install xcodegen` | `core/scripts/build-ios.sh && cd app-ios && xcodegen && open Airkeys.xcodeproj` |
+| Android app | JDK 17 and 21, Android SDK + NDK, `cargo install cargo-ndk` | `cd app-android/Airkeys && ./gradlew :app:assembleRelease` |
+| iOS app | Apple silicon, Xcode 26, `brew install xcodegen` | `core/scripts/build-ios.sh && cd app-ios && xcodegen && open Airkeys.xcodeproj` |
 | Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `build/` |
 | Browser extension | the same | `bun run extension` → `extension/` (load unpacked) |
 
-Self-hosting the web app is copying `build/` to any static host — or opening it from disk.
-Its chain endpoints are in Settings; point them at your own nodes.
+Self-hosting the web app is copying `build/` to any static host (over HTTPS: the camera needs
+it). Its chain endpoints are in Settings; point them at your own nodes.
 
 ## Verification
 
-Everything below runs, and passes, on this tree:
+CI runs the core, web and Android checks on every pull request. Everything below runs, and
+passes, on this tree:
 
 ```sh
 cd core
-cargo test --workspace --release        # 47 tests: BIP-39/32, addresses vs. independent tools, hostile requests,
+cargo test --workspace --release        # BIP-39/32, addresses vs. independent tools, hostile requests,
                                         # protocol checks, app flows through the real FFI object
 cargo clippy --workspace --all-targets -- -D warnings
 node e2e/evm.mjs                        # anvil fork of mainnet: USDC, USDT, ETH, EIP-1559 + legacy
@@ -79,6 +93,13 @@ cd ../../app-ios && xcodebuild -scheme Airkeys -destination 'platform=iOS Simula
 See [docs/DESIGN.md § What is verified](docs/DESIGN.md#what-is-verified) for what each check
 proves and what remains untested.
 
+## Contributing
+
+Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) first. The wire
+protocol is a contract between apps updated at different times: within version 1 it does not
+change. Report vulnerabilities privately ([SECURITY.md](SECURITY.md)). Changes are listed in
+[CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
-MIT.
+[MIT](LICENSE).

@@ -90,7 +90,7 @@ copies are ordinary memory, freed but not wiped — an OS-level attacker is out 
 ### Air gap, enforced
 The core reports a "take this phone offline" screen instead of anything else until Wi-Fi,
 Bluetooth, mobile data and every network connection are off. A radio coming back pauses
-everything (camera off, codes hidden; screenshots stay blocked) and the open wallet waits.
+everything (camera off, codes hidden; a phrase stays protected) and the open wallet waits.
 
 A switch is not proof, so each row is also checked by what the phone observes, and a radio
 switched off but seen working is "still active":
@@ -99,7 +99,8 @@ switched off but seen working is "still active":
   system setting — and no Bluetooth Low Energy scanner exists (it exists only while the radio
   is powered). On a Redmi K40 the adapter API answered "off" while Bluetooth was on, in MIUI's
   "half-on" mode; the system setting and the scanner told the truth.
-- **Mobile data**: Airplane mode, and no cellular signal.
+- **Mobile data**: Airplane mode, and no cellular signal (Android shows apps the signal from
+  version 10; on 8 and 9, Airplane mode alone).
 - **Wi-Fi**: switched off, and not scanning in the background ("Wi-Fi scanning" with Location
   on keeps the radio searching).
 
@@ -133,8 +134,9 @@ addresses), all 100 by default.
 
 ### One core, thin shells
 `core/app` is a [Crux](https://github.com/redbadger/crux) app: events in, a view model and
-requests out, no I/O. Everything a person sees — every screen, every sentence — comes from it,
-so iOS and Android cannot disagree. The runtime around it runs Lumen Code (send and receive)
+requests out, no I/O. Every decision — which screen, what is allowed, what may be signed — and
+everything a person reads about the wallet, a request and the checks comes from it, so iOS and
+Android cannot disagree; the shells add only fixed labels and explanations, the same on both. The runtime around it runs Lumen Code (send and receive)
 and QR decoding in Rust, and answers every call synchronously: no callbacks, no threads.
 Platform requests are notifications only (camera on, keep screen on, block screenshots,
 haptics), and they are derived from the current screen by one function, so no path can leave
@@ -164,9 +166,9 @@ largest cells, 52 to 84 across, with which the phone reads the request within tw
 ### The web app
 A static site — no backend. It reads chains directly from the browser (endpoints configurable
 per chain, including EVM chains added by hand), keeps only addresses and settings in
-`localStorage`, and builds without a server: host `build/` anywhere, open it from disk, or load
-the extension build. Dependencies: Svelte, paulmillr's audited `@noble`/`@scure` primitives,
-Lumen Code, a tiny QR encoder.
+`localStorage`, and builds without a server: put `build/` on any static host (over HTTPS, which
+the camera needs), or load the extension build. Dependencies: Svelte, paulmillr's audited
+`@noble`/`@scure` primitives, Lumen Code, a tiny QR encoder.
 
 ### Many accounts in the web app
 Public endpoints limit how fast one visitor may ask, so balances are read in bulk:
@@ -215,7 +217,7 @@ want of fees.
 | Claim | How |
 |---|---|
 | BIP-39 and BIP-32 (hardened) | Official vectors (`core/wallet/src/keys.rs`) |
-| Addresses on the Airkeys paths | Foundry `cast`, @scure/bip32, Bitcoin Core descriptors (`tests/derivation.rs`, `e2e/recovery.mjs`) |
+| Addresses on the Airkeys paths | Foundry `cast`, @scure/bip32, Bitcoin Core descriptors (`core/wallet/tests/derivation.rs`, `core/e2e/recovery.mjs`) |
 | EVM signing | EIP-155 example byte-for-byte; mainnet fork executes USDC, USDT (non-standard), ETH, EIP-1559 and legacy transactions (`e2e/evm.mjs`) |
 | Bitcoin signing | Bitcoin Core 31.1 regtest accepts and mines a 3-input spend to P2TR, P2PKH, P2SH and change (`e2e/bitcoin.mjs`) |
 | Recovery without Airkeys | Each recipe of RECOVERY.md, run with Bitcoin Core 31.1 and `cast` 1.5 (its root-key script taken from the document), derives the phone's addresses for three accounts per network, with and without a passphrase; a Bitcoin Core wallet built from the descriptor sweeps coins on regtest (`e2e/recovery.mjs`) |

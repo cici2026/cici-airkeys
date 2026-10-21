@@ -1,50 +1,75 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Airkeys Constitution
+
+The rules every change to Airkeys keeps. They come from [docs/DESIGN.md](../../docs/DESIGN.md),
+which explains each; when the two disagree, fix whichever is wrong in the same change.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Addresses only
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Nothing leaves the phone but addresses and signed transactions. A public key, an extended key
+or a recovery phrase never does — not in a code, a screenshot, a log or a file. Every
+derivation step is hardened, so one address cannot lead to another.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Nothing created, nothing stored
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Airkeys does not generate recovery phrases or randomness for them. A phrase is typed or
+scanned, held in memory only, and gone when the wallet or the app closes. Nothing about a
+wallet is written to storage.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. The air gap is enforced
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+The phone app does nothing until every radio is off, judged by what the phone observes, not
+only by its switches. A radio coming back pauses everything. Unknown counts as on.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Clear signing, transfers only
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+The phone signs only transfers it builds itself, after showing every recipient, amount, fee and
+network, and only after a deliberate hold. A request that fails a check of
+[PROTOCOL §7](../../docs/PROTOCOL.md) is refused, never signed with a warning.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. The protocol does not break (NON-NEGOTIABLE)
+
+[docs/PROTOCOL.md](../../docs/PROTOCOL.md) is a contract between phones and web apps updated
+at different times. Within a protocol version, a message accepted today is accepted tomorrow
+and means the same; derivation, addresses, signing, the checks of §7 and the code settings a
+reader relies on do not change. Anything else is a new protocol version, agreed first, with
+both sides and the document changed together.
+
+### VI. One core, thin shells
+
+Every decision — which screen, what it says, what may be signed — lives in the Rust core and
+is shared by iOS and Android. The shells draw the core's view and perform what it asks; the two
+phones never disagree. The web app holds addresses only and never needs a key.
+
+### VII. Every claim is verified
+
+A promise in the documentation has a test behind it, against independent implementations
+where one exists (Bitcoin Core, Foundry, libsecp256k1). What is not verified is written down
+as a limit, not left out.
+
+## Security requirements
+
+- Untrusted input (codes, requests, addresses, chain data) is bounded and checked before use;
+  it may be refused, never crash or hang the app.
+- Secrets in memory are wiped when no longer needed; screens holding them block screenshots in
+  release builds.
+- No analytics, no telemetry, no network access on the phone. The web app talks only to the
+  endpoints in its settings.
+- Vulnerabilities are handled privately ([SECURITY.md](../../SECURITY.md)).
+
+## Development workflow
+
+- The checks in [CONTRIBUTING.md](../../CONTRIBUTING.md) pass before a change is merged; CI runs
+  them on every pull request.
+- A change to signing, requests or the codes also runs the end-to-end checks against Bitcoin
+  Core, an Ethereum fork and the web app in Chrome.
+- User-visible changes are recorded in [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution overrides other practices. Amending it takes a pull request that states the
+change and why, updates DESIGN.md to match, and bumps the version below (major: a principle
+removed or redefined; minor: one added; patch: wording).
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-21 | **Last Amended**: 2026-10-21

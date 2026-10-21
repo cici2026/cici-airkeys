@@ -1,0 +1,28 @@
+name: Feature request
+description: An idea for Airkeys.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Does it change what the phone and the web app say to each other?
+      description: Changes to docs/PROTOCOL.md need a new protocol version (see CONTRIBUTING.md).
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true

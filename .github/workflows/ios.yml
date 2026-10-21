@@ -1,0 +1,30 @@
+name: iOS
+
+# Apart from CI: it needs a macOS runner with Xcode 26.
+on:
+  pull_request:
+    paths: [app-ios/**, core/**, registry/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS app (simulator)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain (core/rust-toolchain.toml) and XcodeGen
+        working-directory: core
+        run: |
+          rustup toolchain install || rustup show
+          brew install xcodegen
+      - name: The core for the simulator
+        run: AIRKEYS_IOS_SIM_ONLY=1 core/scripts/build-ios.sh
+      - name: Build the app and its UI tests
+        working-directory: app-ios
+        run: |
+          xcodegen
+          xcodebuild -project Airkeys.xcodeproj -scheme Airkeys \
+            -destination 'generic/platform=iOS Simulator' build-for-testing CODE_SIGNING_ALLOWED=NO
