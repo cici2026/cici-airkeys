@@ -6,6 +6,7 @@ use crate::hash::{hex, keccak256, unhex};
 use crate::{MAX_ADDRESS_LEN, Result, bail, shown};
 use k256::ecdsa::SigningKey;
 
+/// A 20-byte EVM address.
 pub type Address = [u8; 20];
 
 /// Keccak-256 of the uncompressed public key without its 0x04 prefix, last 20 bytes.
@@ -83,6 +84,7 @@ fn rlp_list(items: &[u8]) -> Vec<u8> {
 
 // ---------------------------------------------------------------- transactions
 
+/// How a transaction pays for gas.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fee {
     /// EIP-1559: both in wei per gas, priority ≤ max.
@@ -91,6 +93,7 @@ pub enum Fee {
     Legacy { gas_price: u128 },
 }
 
+/// An EVM transaction before signing: a native transfer (`data` empty) or a token transfer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tx {
     pub chain_id: u64,

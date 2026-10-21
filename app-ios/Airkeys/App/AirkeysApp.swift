@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct AirkeysApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var shell = Shell()
     @Environment(\.scenePhase) private var phase
     @State private var captured = UIScreen.main.isCaptured
@@ -20,9 +21,21 @@ struct AirkeysApp: App {
             }
             .preferredColorScheme(.dark)
             .onAppear { shell.start() }
+            .onChange(of: phase) { _, now in shell.sceneActive(now == .active) }
             .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
                 captured = UIScreen.main.isCaptured
             }
         }
+    }
+}
+
+/// Third-party keyboards can log keystrokes and send them once the phone is back online: in
+/// Airkeys a recovery phrase is typed with Apple's keyboard only.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        shouldAllowExtensionPointIdentifier extensionPointIdentifier: UIApplication.ExtensionPointIdentifier
+    ) -> Bool {
+        extensionPointIdentifier != .keyboard
     }
 }

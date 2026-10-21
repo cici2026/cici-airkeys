@@ -21,9 +21,9 @@ struct ReviewScreen: View {
                 }
             }
             ForEach(r.warnings, id: \.self) { Notice(text: $0, color: Ink.warn) }
-            ForEach(Array(r.transfers.enumerated()), id: \.offset) { i, t in
+            ForEach(Array(r.transfers.enumerated()), id: \.offset) { _, t in
                 Card(border: t.verified ? Ink.stroke : Ink.warn.opacity(0.5)) {
-                    if r.transfers.count > 1 && r.network != .bitcoin { Label2(text: "Transaction \(i + 1)") }
+                    if let label = t.label { Label2(text: label) }
                     Text("\(t.amount) \(t.asset)").font(.akAmount).foregroundStyle(Ink.text).minimumScaleFactor(0.5).lineLimit(2)
                     if let token = t.token {
                         HStack(spacing: 10) {
@@ -70,7 +70,7 @@ struct ReviewScreen: View {
                 }
             }
         } actions: {
-            HoldButton(title: "Hold to \(r.signLabel.lowercased())", warn: !r.warnings.isEmpty) { act(.sign) }
+            HoldButton(title: r.holdLabel, warn: !r.warnings.isEmpty) { act(.sign) }
             AkButton(title: "Reject", kind: .secondary) { act(.reject) }
         }
     }

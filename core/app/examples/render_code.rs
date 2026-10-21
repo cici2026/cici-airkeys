@@ -3,20 +3,24 @@
 //!
 //!   cargo run --release -p airkeys-app --example render_code -- message.json out-prefix [frames] [grid] [ecc]
 //!
-//! `grid` is the cells a side (`100`, the default) or across and down (`60x102`); `ecc` the
-//! parity level (0–3, default 1).
+//! `grid` is the cells a side (`60`, the default) or across and down (`60x102`); `ecc` the
+//! parity level (0–3; default 2, as the phone and the web app use).
 use lumen::Renderer;
 use lumen::transfer::{Sender, prepare};
 use std::fs::File;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 3 {
+        eprintln!("usage: render_code message.json out-prefix [frames] [grid] [ecc]");
+        std::process::exit(2);
+    }
     let data = std::fs::read(&args[1]).expect("a message file");
     let frames: usize = args.get(3).map_or(1, |s| s.parse().unwrap());
-    let grid = args.get(4).map_or("100", |s| s.as_str());
+    let grid = args.get(4).map_or("60", |s| s.as_str());
     let (x, y) = grid.split_once('x').unwrap_or((grid, grid));
     let (x, y): (usize, usize) = (x.parse().unwrap(), y.parse().unwrap());
-    let ecc: usize = args.get(5).map_or(1, |s| s.parse().unwrap());
+    let ecc: usize = args.get(5).map_or(2, |s| s.parse().unwrap());
     let prepared = prepare(&data, "airkeys-sign.json", true);
     let mut tx = Sender::new(&prepared, 1, ecc, x, y, 0x2a2a, 0).expect("a sender");
     eprintln!("payload {} B, {} B per frame", prepared.payload.len(), tx.bytes_per_frame());

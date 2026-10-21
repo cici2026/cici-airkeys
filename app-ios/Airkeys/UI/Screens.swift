@@ -54,6 +54,7 @@ struct RootView: View {
                             .padding(10)
                             .contentShape(Rectangle())
                         }
+                        .accessibilityAddTraits(c.selected ? .isSelected : [])
                     }
                 }
                 Card(padding: 6) {
@@ -68,6 +69,7 @@ struct RootView: View {
                             .padding(10)
                             .contentShape(Rectangle())
                         }
+                        .accessibilityAddTraits(c.selected ? .isSelected : [])
                     }
                 }
             } actions: {
@@ -142,9 +144,10 @@ private struct OfflineScreen: View {
                         if let detail = r.detail { Text(detail).font(.akSmall).foregroundStyle(Ink.dim) }
                     }
                     .padding(12)
+                    .accessibilityElement(children: .combine)
                 }
             }
-            if radios.contains(where: { $0.name == "Bluetooth" && $0.state == .unknown }) {
+            if radios.contains(where: { $0.kind == .bluetooth && $0.state == .unknown }) {
                 Notice(text: "To check Bluetooth, Airkeys needs the Bluetooth permission (Settings › Airkeys). It never uses Bluetooth.", color: Ink.dim, symbol: "info.circle")
             }
             if walletOpen {
@@ -250,7 +253,7 @@ private struct ImportScreen: View {
                 }
             }
         }, actions: {
-            AkButton(title: "Continue", enabled: p.words.count >= 12 && p.problem == nil) { act(.phraseDone) }
+            AkButton(title: "Continue", enabled: p.canContinue) { act(.phraseDone) }
         })
     }
 }

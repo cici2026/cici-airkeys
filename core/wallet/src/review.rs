@@ -12,8 +12,11 @@ use crate::registry::{self, Chain};
 use crate::{MAX_INDEX, Network, Result, Wallet, bail, bitcoin, evm, shown};
 use serde::Serialize;
 
+/// The most transactions an EVM request may hold (PROTOCOL §5.2).
 pub const MAX_TXS: usize = 16;
+/// The most coins a Bitcoin request may spend (PROTOCOL §5.1).
 pub const MAX_INPUTS: usize = 200;
+/// The most payments a Bitcoin request may make (PROTOCOL §5.1).
 pub const MAX_OUTPUTS: usize = 16;
 /// A fee above this share of what is sent gets a warning (§7).
 const HIGH_FEE_PERCENT: u128 = 5;
@@ -31,11 +34,12 @@ pub struct Transfer {
     pub amount: String,
     /// The native coin's or the token's symbol.
     pub asset: String,
-    /// The token contract or mint; `None` for the native coin.
+    /// The token contract; `None` for the native coin.
     pub token: Option<String>,
     /// The token is in Airkeys' list (always true for the native coin).
     pub verified: bool,
-    /// The most this transaction can cost in fees (account networks).
+    /// The most this transaction can cost in fees (EVM only; a Bitcoin fee is the whole
+    /// request's, in [`Review::fee`]).
     pub fee: Option<String>,
     pub note: Option<String>,
 }
@@ -156,7 +160,10 @@ fn nonzero(a: &Amount) -> Result<()> {
 fn check_token(chain: Option<&Chain>, t: &TokenRef) -> Result<bool> {
     let sym_ok = (1..=16).contains(&t.symbol.len()) && t.symbol.bytes().all(|b| b.is_ascii_graphic());
     if !sym_ok {
-        bail!("The token symbol “{}” is not allowed: use 1 to 16 printable ASCII characters.", t.symbol);
+        bail!(
+            "The token symbol “{}” is not allowed: use 1 to 16 printable ASCII characters.",
+            shown(&t.symbol)
+        );
     }
     if t.decimals > 36 {
         bail!("A token with {} decimals is not supported.", t.decimals);
@@ -234,7 +241,7 @@ pub fn review(request: &SignRequest, wallet: &Wallet) -> Result<Review> {
 fn review_bitcoin(b: &BitcoinSign, wallet: &Wallet, accounts: &mut Accounts, r: &mut Review) -> Result<()> {
     count(b.inputs.len(), MAX_INPUTS, "inputs")?;
     count(b.outputs.len(), MAX_OUTPUTS, "outputs")?;
-    let reg = registry::get().chain(Network::Bitcoin).unwrap();
+    let reg = &registry::get().bitcoin;
     r.chain = reg.name.clone();
     let key = wallet.key(Network::Bitcoin, r.from.index)?;
     let own_script = bitcoin::p2wpkh_script(&key);

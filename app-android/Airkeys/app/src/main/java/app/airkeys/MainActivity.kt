@@ -40,7 +40,6 @@ class MainActivity : ComponentActivity() {
                 App(shell.view, shell::dispatch, shell::codeFrame) { CameraPreview() }
             }
         }
-        shell.watchRadios(this)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when (shell.view.screen) {
@@ -50,6 +49,16 @@ class MainActivity : ComponentActivity() {
             }
         })
         testHooks(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        shell.radios.start()
+    }
+
+    override fun onStop() {
+        shell.radios.stop()
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -73,11 +82,12 @@ class MainActivity : ComponentActivity() {
         var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
         val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             granted = ok
-            if (!ok) shell.dispatch(Action.CameraFailed("Airkeys needs the camera to read the web app's code. Allow it in the phone's settings, then try again."))
+            if (!ok) shell.dispatch(Action.CameraFailed("Airkeys needs the camera to read codes: the web app's, or a SeedQR. Allow it in the phone's settings, then try again."))
         }
         LaunchedEffect(shell.cameraOn, granted) { if (shell.cameraOn && !granted) ask.launch(Manifest.permission.CAMERA) }
         if (!shell.cameraOn || !granted) return
-        val camera = remember { Camera(this, shell::frame) { msg -> runOnUiThread { shell.dispatch(Action.CameraFailed(msg)) } } }
+        // its errors come on the main thread (the provider's listener)
+        val camera = remember { ScanCamera(this, shell::frame) { msg -> shell.dispatch(Action.CameraFailed(msg)) } }
         AndroidView(
             factory = { ctx -> PreviewView(ctx).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }.also { camera.start(it) } },
             modifier = Modifier.fillMaxSize(),

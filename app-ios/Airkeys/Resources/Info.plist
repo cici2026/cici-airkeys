@@ -27,24 +27,17 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Airkeys checks that Bluetooth is off — it works only on a phone with every radio off. It never uses Bluetooth.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Airkeys reads the code on the web app's screen with the camera. Nothing leaves this phone.</string>
+	<string>Airkeys reads codes with the camera: the web app's, or your SeedQR. Images never leave this phone and are not stored.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
-	<key>UIRequiresFullScreen</key>
-	<true/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>

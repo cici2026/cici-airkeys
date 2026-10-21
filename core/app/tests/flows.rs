@@ -77,7 +77,8 @@ impl Shell {
     /// Films a Lumen Code message shown by the web app until the phone has it.
     fn film(&mut self, json: &str) {
         let prepared = prepare(json.as_bytes(), "airkeys-sign.json", true);
-        let mut tx = Sender::new(&prepared, 1, 1, 120, 72, 0x5157, 0).unwrap();
+        // as the web app shows it: 4 colours, 22 % parity
+        let mut tx = Sender::new(&prepared, 1, 2, 60, 60, 0x5157, 0).unwrap();
         for _ in 0..60 {
             if !self.camera {
                 return;
@@ -473,7 +474,8 @@ fn scan_review_sign_show() {
     assert_eq!((t[0].amount.as_str(), t[0].asset.as_str(), t[0].verified), ("25", "USDC", true));
     assert_eq!((t[1].amount.as_str(), t[1].own_index), ("0.3", Some(1)));
     assert_eq!(review.fee, "≤ 0.000222 ETH");
-    assert_eq!(review.sign_label, "Sign 2 transactions");
+    assert_eq!(review.hold_label, "Hold to sign 2 transactions");
+    assert_eq!(review.transfers[1].label.as_deref(), Some("Transaction 2"));
     assert!(review.warnings.is_empty());
     assert!(review.notices[0].contains("reveals the public key of EVM account #0"));
 

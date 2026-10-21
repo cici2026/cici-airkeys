@@ -1,18 +1,26 @@
 //! The phone's signing path as a command, for tests and for checking requests by hand.
 //!
 //! ```sh
-//! AIRKEYS_PHRASE="abandon … about" cargo run --example sign < request.json   # review + signed
-//! AIRKEYS_PHRASE="…" cargo run --example sign -- accounts evm 0 1             # an accounts message
+//! AIRKEYS_PHRASE="abandon … about" cargo run -p airkeys-wallet --example sign < request.json  # review + signed
+//! AIRKEYS_PHRASE="…" cargo run -p airkeys-wallet --example sign -- accounts evm 0 1            # an accounts message
 //! ```
 //!
 //! Prints the review (what the phone shows) on stderr and the reply message on stdout.
+//!
+//! Test phrases only: a phrase in an environment variable lands in shell history and process
+//! listings. Never use one that holds funds.
 
 use airkeys_wallet::protocol::{Account, Message};
 use airkeys_wallet::{Mnemonic, Network, Wallet, review};
 use std::io::Read;
 
 fn main() {
-    let phrase = std::env::var("AIRKEYS_PHRASE").expect("set AIRKEYS_PHRASE");
+    let Ok(phrase) = std::env::var("AIRKEYS_PHRASE") else {
+        eprintln!(
+            "usage: AIRKEYS_PHRASE=\"<test phrase>\" sign < request.json | sign accounts <network> <index>…"
+        );
+        std::process::exit(2);
+    };
     let passphrase = std::env::var("AIRKEYS_PASSPHRASE").unwrap_or_default();
     let wallet = Wallet::new(&Mnemonic::parse(&phrase).unwrap().seed(&passphrase).unwrap()).unwrap();
     let args: Vec<String> = std::env::args().skip(1).collect();

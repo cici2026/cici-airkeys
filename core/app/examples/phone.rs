@@ -4,6 +4,8 @@
 //!
 //!   AIRKEYS_PHRASE="…" cargo run --release -p airkeys-app --example phone -- accounts out.y4m
 //!   AIRKEYS_PHRASE="…" cargo run --release -p airkeys-app --example phone -- sign request.json out.y4m
+//!
+//! Test phrases only: never one that holds funds.
 use airkeys::ops::{Action, RadioState};
 use airkeys::runtime::{AirkeysCore, CodeFrame};
 use airkeys::view::Screen;
@@ -16,7 +18,12 @@ const AREA: (u32, u32) = (1080, 1800);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let phrase = std::env::var("AIRKEYS_PHRASE").expect("set AIRKEYS_PHRASE");
+    let (Ok(phrase), Some(_)) = (std::env::var("AIRKEYS_PHRASE"), args.last()) else {
+        eprintln!(
+            "usage: AIRKEYS_PHRASE=\"<test phrase>\" phone accounts out.y4m | phone sign request.json out.y4m"
+        );
+        std::process::exit(2);
+    };
     let core = AirkeysCore::new();
     let off = RadioState::Off;
     core.dispatch(Action::Radios { wifi: off, bluetooth: off, cellular: off, network: off });

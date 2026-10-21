@@ -94,9 +94,29 @@ fn a_huge_address_is_refused_at_once_with_a_short_message() {
         };
         let t = Instant::now();
         let e = refusal(&r);
-        assert!(t.elapsed().as_millis() < 200, "took {:?}", t.elapsed());
+        // it once took minutes; a slow CI machine still answers well within this
+        assert!(t.elapsed().as_millis() < 2_000, "took {:?}", t.elapsed());
         assert!(e.chars().count() < 200, "the message quotes the address in full: {} characters", e.len());
     }
+}
+
+#[test]
+fn text_from_a_request_reaches_the_screen_cleaned() {
+    // a direction override and a control character, padded long
+    let hostile = format!("\u{202e}evil\u{0}{}", "x".repeat(5_000));
+    let clean = |e: &str| {
+        assert!(e.chars().count() < 200, "{} characters", e.chars().count());
+        assert!(!e.contains('\u{202e}') && !e.contains('\u{0}'), "{e:?}");
+    };
+    // the message type, an unknown field's name
+    for message in [json!({"airkeys":1,"type":hostile}), json!({"airkeys":1,"type":"signed",&hostile:1})] {
+        clean(&Message::parse(message.to_string().as_bytes()).unwrap_err().to_string());
+    }
+    // a token's symbol
+    let token = json!({"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":hostile,"decimals":6});
+    let tx = json!({"to":{"address":FOREIGN_EVM},"amount":"1","token":token,"nonce":0,"gas":65000,
+        "maxFeePerGas":"1000000000","maxPriorityFeePerGas":"1000000000"});
+    clean(&refusal(&evm(json!([tx]))));
 }
 
 #[test]

@@ -18,6 +18,7 @@ pub fn wordlist() -> &'static [&'static str] {
     &WORDS
 }
 
+/// The position of `word` in the BIP-39 English list (0–2047); `None` for any other text.
 pub fn word_index(word: &str) -> Option<usize> {
     WORDS.binary_search(&word).ok()
 }
@@ -36,6 +37,7 @@ pub fn completions(prefix: &str, limit: usize) -> Vec<&'static str> {
 pub struct Mnemonic(Zeroizing<String>);
 
 impl Mnemonic {
+    /// The lengths BIP-39 allows, in words.
     pub const WORD_COUNTS: [usize; 5] = [12, 15, 18, 21, 24];
 
     /// 16, 20, 24, 28 or 32 bytes of entropy → 12 … 24 words.
@@ -104,7 +106,7 @@ impl Mnemonic {
         if digits && payload.len().is_multiple_of(4) && Self::WORD_COUNTS.contains(&(payload.len() / 4)) {
             let mut words = Zeroizing::new(String::new());
             for (n, d) in payload.chunks(4).enumerate() {
-                let i: usize = std::str::from_utf8(d).unwrap().parse().unwrap();
+                let i = d.iter().fold(0, |n, b| n * 10 + usize::from(b - b'0'));
                 let Some(w) = WORDS.get(i) else {
                     bail!("This SeedQR names word number {i}, but the list has 2048 words.")
                 };
@@ -126,10 +128,12 @@ impl Mnemonic {
         bail!("This QR code does not hold a recovery phrase (SeedQR, CompactSeedQR or the words as text).")
     }
 
+    /// The words, separated by single spaces.
     pub fn phrase(&self) -> &str {
         &self.0
     }
 
+    /// The words, in order.
     pub fn words(&self) -> Vec<&str> {
         self.0.split(' ').collect()
     }
@@ -155,6 +159,8 @@ impl std::fmt::Debug for Mnemonic {
     }
 }
 
+/// Whether a passphrase can be used: at most 256 characters, printable ASCII only (see
+/// [`Mnemonic::seed`] for why).
 pub fn check_passphrase(passphrase: &str) -> Result<()> {
     if passphrase.len() > 256 {
         bail!("The passphrase is longer than 256 characters.");
@@ -165,13 +171,11 @@ pub fn check_passphrase(passphrase: &str) -> Result<()> {
     Ok(())
 }
 
+/// The 64-byte BIP-39 seed of a phrase and passphrase; wiped when dropped.
 pub struct Seed(Zeroizing<[u8; 64]>);
 
 impl Seed {
-    pub fn from_bytes(bytes: [u8; 64]) -> Seed {
-        Seed(Zeroizing::new(bytes))
-    }
-
+    /// The seed's bytes.
     pub fn as_bytes(&self) -> &[u8; 64] {
         &self.0
     }
@@ -257,6 +261,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
+    /// Opens the wallet of `seed`: derives the hardened parent of every network's accounts.
     pub fn new(seed: &Seed) -> Result<Wallet> {
         let [a, b] = Network::ALL;
         Ok(Wallet { parents: [derive(seed, parent_path(a))?, derive(seed, parent_path(b))?] })
@@ -264,7 +269,11 @@ impl Wallet {
 
     /// The private key of account `index` on `network`.
     pub(crate) fn key(&self, network: Network, index: u32) -> Result<k256::ecdsa::SigningKey> {
-        let parent = &self.parents[Network::ALL.iter().position(|&n| n == network).unwrap()];
+        // `new` derives the parents in the order of `Network::ALL`
+        let parent = &self.parents[match network {
+            Network::Bitcoin => 0,
+            Network::Evm => 1,
+        }];
         let node = child(parent, index)?;
         Ok(k256::ecdsa::SigningKey::from_bytes(&node.key.into()).expect("checked by BIP-32 derivation"))
     }

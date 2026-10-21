@@ -13,64 +13,39 @@ pub struct ViewModel {
     pub version: String,
 }
 
+/// The screen to draw, with everything it shows.
 #[derive(Clone, Debug, PartialEq, uniffi::Enum)]
 pub enum Screen {
     /// A radio is on (or cannot be checked): nothing works until the phone is offline.
-    Offline {
-        radios: Vec<RadioRow>,
-        wallet_open: bool,
-    },
+    Offline { radios: Vec<RadioRow>, wallet_open: bool },
     /// No wallet open. Nothing is stored, so this is where every session starts.
     Welcome,
     /// Typing the recovery phrase.
-    Import {
-        phrase: PhraseInput,
-    },
+    Import { phrase: PhraseInput },
     /// The optional passphrase, then opening the wallet.
-    Passphrase {
-        passphrase: String,
-        problem: Option<String>,
-    },
-    Home {
-        index: u32,
-        accounts: Vec<AccountRow>,
-    },
-    Account {
-        account: AccountRow,
-    },
+    Passphrase { passphrase: String, problem: Option<String> },
+    /// The open wallet: account number `index` on every network.
+    Home { index: u32, accounts: Vec<AccountRow> },
+    /// One account: its address, path and the notice about its key.
+    Account { account: AccountRow },
     /// Choosing what to show the web app: which networks, and account `index` or all of them.
-    Connect {
-        index: u32,
-        choices: Vec<NetworkChoice>,
-        scopes: Vec<ScopeChoice>,
-    },
+    Connect { index: u32, choices: Vec<NetworkChoice>, scopes: Vec<ScopeChoice> },
     /// An animated code on screen (Lumen Code). `json` is exactly what it carries; `message`
     /// is the same JSON laid out to read.
-    Code {
-        title: String,
-        caption: String,
-        json: String,
-        message: Vec<JsonLine>,
-    },
+    Code { title: String, caption: String, json: String, message: Vec<JsonLine> },
     /// The camera, reading a request (Lumen Code) or a recovery phrase (QR code).
-    Scan {
-        title: String,
-        hint: String,
-        progress: Option<ScanProgress>,
-        problem: Option<String>,
-    },
-    Review {
-        review: ReviewView,
-    },
+    Scan { title: String, hint: String, progress: Option<ScanProgress>, problem: Option<String> },
+    /// A request that passed every check, shown in full before the hold to sign.
+    Review { review: ReviewView },
     /// A request the phone will not sign, and why.
-    Refused {
-        title: String,
-        message: String,
-    },
+    Refused { title: String, message: String },
 }
 
+/// A row of the offline check.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct RadioRow {
+    /// Which radio: what a shell keys on (its settings screen, its permission), never `name`.
+    pub kind: RadioKind,
     /// "Wi-Fi", "Bluetooth", "Mobile data", "Network connection"
     pub name: String,
     pub state: crate::ops::RadioState,
@@ -78,6 +53,20 @@ pub struct RadioRow {
     pub detail: Option<String>,
 }
 
+/// The radios the offline check looks at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
+pub enum RadioKind {
+    /// The Wi-Fi radio, scanning included.
+    Wifi,
+    /// The Bluetooth radio, scanning included.
+    Bluetooth,
+    /// The cellular radio.
+    MobileData,
+    /// Any network connection: Wi-Fi, cellular, a cable, tethering, a VPN.
+    Network,
+}
+
+/// The recovery phrase as typed so far, and what the screen says about it.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct PhraseInput {
     pub text: String,
@@ -88,14 +77,18 @@ pub struct PhraseInput {
     /// What is wrong so far, in a sentence.
     pub problem: Option<String>,
     pub valid: bool,
+    /// Enough words and nothing wrong so far: Continue may be pressed (it checks the phrase).
+    pub can_continue: bool,
 }
 
+/// A word of the phrase, numbered by its place.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct WordEntry {
     pub word: String,
     pub state: WordState,
 }
 
+/// Where a word of the phrase stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum WordState {
     /// In the word list.
@@ -106,9 +99,12 @@ pub enum WordState {
     Unknown,
 }
 
+/// The networks Airkeys signs for, as the shells see them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum NetworkKind {
+    /// Bitcoin: native SegWit accounts.
     Bitcoin,
+    /// Ethereum and every EVM chain: one address on all of them.
     Evm,
 }
 
@@ -132,6 +128,7 @@ impl From<NetworkKind> for airkeys_wallet::Network {
     }
 }
 
+/// An account of the open wallet, on one network.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct AccountRow {
     pub network: NetworkKind,
@@ -144,6 +141,7 @@ pub struct AccountRow {
     pub path: String,
 }
 
+/// A network on the Connect screen, included or not.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct NetworkChoice {
     pub network: NetworkKind,
@@ -160,12 +158,14 @@ pub struct ScopeChoice {
     pub selected: bool,
 }
 
+/// How far a code has been read, in fountain symbols.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct ScanProgress {
     pub received: u32,
     pub needed: u32,
 }
 
+/// A request as the review screen shows it.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct ReviewView {
     pub network: NetworkKind,
@@ -179,12 +179,15 @@ pub struct ReviewView {
     pub details: Vec<Detail>,
     pub warnings: Vec<String>,
     pub notices: Vec<String>,
-    /// "Sign 3 transactions"
-    pub sign_label: String,
+    /// The hold-to-sign button: "Hold to sign 3 transactions".
+    pub hold_label: String,
 }
 
+/// One transfer of a request: to whom, how much, and what it costs.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct TransferView {
+    /// "Transaction 2", when a request has several (EVM: one transaction each).
+    pub label: Option<String>,
     pub to: String,
     pub own_index: Option<u32>,
     pub amount: String,
@@ -195,6 +198,7 @@ pub struct TransferView {
     pub note: Option<String>,
 }
 
+/// A technical field of a request, for those who look: a label and its value.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct Detail {
     pub label: String,
@@ -210,18 +214,21 @@ pub struct JsonLine {
     pub pieces: Vec<JsonPiece>,
 }
 
+/// A piece of a line of JSON: text of one kind, to colour.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct JsonPiece {
     pub text: String,
     pub kind: JsonKind,
 }
 
+/// What a piece of JSON is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum JsonKind {
     /// A member's name, quoted.
     Key,
     /// A string value, quoted: an address, an amount, a hash.
     Text,
+    /// A number, as written.
     Number,
     /// `true`, `false`, `null`.
     Literal,

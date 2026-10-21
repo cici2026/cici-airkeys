@@ -3,8 +3,6 @@
     <!-- Dark from the first frame: no white flash before Compose draws. -->
     <style name="Theme.Airkeys" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bunker</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
     <color name="bunker">#FF0B0D11</color>

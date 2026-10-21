@@ -16,26 +16,25 @@ use crux_core::capability::Operation;
 #[derive(Clone, Debug, PartialEq, uniffi::Enum)]
 pub enum Request {
     /// Start or stop the back camera; frames go to `AirkeysCore::scan`.
-    Camera {
-        on: bool,
-    },
+    Camera { on: bool },
     /// Keep the screen on (and bright, for a code) while a code is shown or scanned.
-    KeepScreenOn {
-        on: bool,
-    },
-    /// The screen shows a recovery phrase as it is typed: block screenshots and recording.
-    Private {
-        on: bool,
-    },
-    Haptic {
-        kind: Haptic,
-    },
+    KeepScreenOn { on: bool },
+    /// The screen shows a recovery phrase or passphrase (or the SeedQR camera): block
+    /// screenshots and recording where the platform can (Android), cover the screen while it is
+    /// recorded or mirrored where it cannot (iOS).
+    Private { on: bool },
+    /// A tap of feedback in the hand.
+    Haptic { kind: Haptic },
 }
 
+/// The kinds of feedback, as the platforms name them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
 pub enum Haptic {
+    /// Done: a wallet opened, a request signed.
     Success,
+    /// Look again: a request with warnings.
     Warning,
+    /// Refused.
     Error,
 }
 
@@ -47,15 +46,14 @@ impl Operation for Request {
 #[derive(Clone, Debug, PartialEq)]
 pub enum CodeOp {
     /// Play `data` as an animated code, as file `name`.
-    Show {
-        name: String,
-        data: Vec<u8>,
-    },
+    Show { name: String, data: Vec<u8> },
+    /// Stop showing the code.
     Hide,
     /// Read a Lumen Code transfer from camera frames (a sign request).
     Listen,
     /// Read a QR code from camera frames (a recovery phrase).
     ListenQr,
+    /// Stop reading.
     Stop,
 }
 
@@ -74,6 +72,7 @@ pub enum RadioState {
     /// Switched off, yet observed working: a cellular signal, a recent Wi-Fi scan, a Bluetooth
     /// scan that runs.
     Active,
+    /// The phone does not say; counts as on.
     #[default]
     Unknown,
 }
@@ -84,61 +83,51 @@ pub enum Action {
     /// The phone's radios and its network connections, at start and whenever one changes.
     /// Airkeys works only while all four are off; `network` is on while the phone has any
     /// network at all (Wi-Fi, cellular, Bluetooth or USB tethering, Ethernet, VPN).
-    Radios {
-        wifi: RadioState,
-        bluetooth: RadioState,
-        cellular: RadioState,
-        network: RadioState,
-    },
+    Radios { wifi: RadioState, bluetooth: RadioState, cellular: RadioState, network: RadioState },
+    /// The back button or gesture.
     Back,
 
     /// "Enter recovery phrase".
     Begin,
-    PhraseInput {
-        text: String,
-    },
+    /// The phrase field's text after an edit; the core answers with its own (words completed).
+    PhraseInput { text: String },
     /// Replace the word being typed with a suggestion.
-    Suggestion {
-        word: String,
-    },
+    Suggestion { word: String },
+    /// "Continue" on the phrase screen.
     PhraseDone,
-    PassphraseInput {
-        passphrase: String,
-    },
+    /// The passphrase field's text after an edit.
+    PassphraseInput { passphrase: String },
+    /// "Open wallet".
     Open,
     /// Forget the wallet now.
     Close,
 
     /// Show another account number, below [`account_count`](crate::runtime::account_count).
-    Account {
-        index: u32,
-    },
-    OpenAccount {
-        network: crate::view::NetworkKind,
-    },
+    Account { index: u32 },
+    /// Show the home screen's account on `network`: its address, path and code.
+    OpenAccount { network: crate::view::NetworkKind },
     /// Show one account as a code.
-    ShareAccount {
-        network: crate::view::NetworkKind,
-    },
+    ShareAccount { network: crate::view::NetworkKind },
+    /// "Connect": choose what to show the web app.
     Connect,
     /// On the Connect screen: every account number, or only the one on the home screen.
-    ConnectScope {
-        all: bool,
-    },
-    ToggleNetwork {
-        network: crate::view::NetworkKind,
-    },
+    ConnectScope { all: bool },
+    /// On the Connect screen: include a network, or leave it out.
+    ToggleNetwork { network: crate::view::NetworkKind },
+    /// "Show code" on the Connect screen.
     ShowAccounts,
 
+    /// "Scan request", or "Scan SeedQR" with no wallet open.
     Scan,
     /// The camera could not start; the message says why.
-    CameraFailed {
-        message: String,
-    },
+    CameraFailed { message: String },
+    /// The hold-to-sign button, held to the end.
     Sign,
+    /// "Reject" on a request.
     Reject,
     /// Leave a code screen or a refusal.
     Done,
+    /// The one-time message was seen.
     DismissToast,
 }
 

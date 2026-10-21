@@ -1,11 +1,13 @@
 //! What an Airkeys wallet computes: recovery phrases, hardened key derivation, addresses, and
 //! transfer transactions for Bitcoin and EVM chains — plus the wire protocol that carries
 //! them between the offline phone and the online web app
-//! ([`docs/PROTOCOL.md`](../../../docs/PROTOCOL.md)).
+//! ([`docs/PROTOCOL.md`](https://github.com/mondaylabsltd/airkeys/blob/main/docs/PROTOCOL.md)).
 //!
 //! Pure functions only: no I/O, no clock, no randomness. Cryptographic primitives come from
 //! RustCrypto; this crate composes them and checks every composition against published test
 //! vectors.
+
+#![forbid(unsafe_code)]
 
 pub mod amount;
 pub mod bitcoin;
@@ -33,6 +35,7 @@ pub enum Network {
 }
 
 impl Network {
+    /// Every network, in the order the phone lists them.
     pub const ALL: [Network; 2] = [Network::Bitcoin, Network::Evm];
 
     /// The derivation path of account `index`, every step hardened (PROTOCOL §3).
@@ -66,6 +69,7 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// A result whose error is a sentence for the person ([`Error`]).
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// `Err(Error(format!(…)))`.

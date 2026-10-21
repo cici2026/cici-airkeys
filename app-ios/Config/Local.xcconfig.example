@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (git-ignored) to sign builds for your own devices.
+DEVELOPMENT_TEAM = ABCDE12345
+// A bundle ID of your own: app.airkeys belongs to the Airkeys team.
+AIRKEYS_BUNDLE_ID = com.example.airkeys

@@ -1,5 +1,7 @@
 [bindings.kotlin]
 package_name = "app.airkeys.core"
+# Android's own cleaner: java.lang.ref.Cleaner needs API 33, and the app runs from API 26
+android = true
 
 [bindings.swift]
 module_name = "AirkeysCore"

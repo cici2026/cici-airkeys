@@ -7,6 +7,8 @@
 use crate::{Error, Result, bail, shown};
 use serde::{Deserialize, Serialize};
 
+/// An amount in the smallest unit (satoshi, wei, a token's base unit), as the protocol writes
+/// it: a decimal string, so that no JSON number loses precision (PROTOCOL §2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Amount {
@@ -48,10 +50,12 @@ impl Amount {
         Ok(Amount { digits: s.to_string(), be })
     }
 
+    /// The decimal digits, exactly as written.
     pub fn as_str(&self) -> &str {
         &self.digits
     }
 
+    /// Whether the amount is 0.
     pub fn is_zero(&self) -> bool {
         self.digits == "0"
     }
@@ -67,6 +71,7 @@ impl Amount {
         &self.be[first..]
     }
 
+    /// The value, if it fits 128 bits.
     pub fn to_u128(&self) -> Option<u128> {
         if self.be[..16].iter().any(|&b| b != 0) {
             return None;
@@ -74,6 +79,7 @@ impl Amount {
         Some(u128::from_be_bytes(self.be[16..].try_into().unwrap()))
     }
 
+    /// The value, if it fits 64 bits (every bitcoin amount does).
     pub fn to_u64(&self) -> Option<u64> {
         self.to_u128().and_then(|v| u64::try_from(v).ok())
     }

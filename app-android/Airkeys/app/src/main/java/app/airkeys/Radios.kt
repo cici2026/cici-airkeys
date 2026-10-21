@@ -12,12 +12,14 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import app.airkeys.core.Action
 import app.airkeys.core.RadioState
 
@@ -28,7 +30,8 @@ import app.airkeys.core.RadioState
  * Wi-Fi scanning in the background. And the phone must have no network at all. Every check here
  * works without a permission; a check that cannot be made counts as on.
  *
- * Checked at start, on every radio and network broadcast, and every few seconds.
+ * Checked at start, on every radio and network broadcast, and every few seconds — while the app
+ * is in sight: [start] and [stop] follow the Activity, and coming back checks at once.
  */
 class Radios(private val context: Context, private val report: (Action.Radios) -> Unit) {
     private val main = Handler(Looper.getMainLooper())
@@ -37,6 +40,18 @@ class Radios(private val context: Context, private val report: (Action.Radios) -
         override fun run() {
             check()
             main.postDelayed(this, POLL_MS)
+        }
+    }
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, intent: Intent) = check()
+    }
+    private val networks = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            main.post { check() }
+        }
+
+        override fun onLost(network: Network) {
+            main.post { check() }
         }
     }
 
@@ -48,27 +63,21 @@ class Radios(private val context: Context, private val report: (Action.Radios) -
             addAction(LocationManager.MODE_CHANGED_ACTION)
         }
         // system broadcasts reach a receiver that is not exported
-        ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
-            override fun onReceive(c: Context, intent: Intent) = check()
-        }, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         // every network, VPNs and restricted ones included
         val any = NetworkRequest.Builder()
             .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
             .removeCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)
             .build()
-        runCatching {
-            connectivity?.registerNetworkCallback(any, object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    main.post { check() }
-                }
-
-                override fun onLost(network: Network) {
-                    main.post { check() }
-                }
-            })
-        }
+        runCatching { connectivity?.registerNetworkCallback(any, networks) }
         poll.run()
+    }
+
+    fun stop() {
+        main.removeCallbacks(poll)
+        runCatching { context.unregisterReceiver(receiver) }
+        runCatching { connectivity?.unregisterNetworkCallback(networks) }
     }
 
     fun check() {
@@ -81,7 +90,7 @@ class Radios(private val context: Context, private val report: (Action.Radios) -
         val on = runCatching { wifi.isWifiEnabled }.getOrNull() ?: return RadioState.UNKNOWN
         // with "Wi-Fi scanning" on, the radio keeps scanning for networks while Location is on
         val scanning = runCatching {
-            wifi.isScanAlwaysAvailable && context.getSystemService(LocationManager::class.java).isLocationEnabled
+            wifi.isScanAlwaysAvailable && LocationManagerCompat.isLocationEnabled(context.getSystemService(LocationManager::class.java))
         }.getOrNull() ?: return RadioState.UNKNOWN
         log("wifi switch=$on scanning=$scanning")
         return when {
@@ -114,7 +123,9 @@ class Radios(private val context: Context, private val report: (Action.Radios) -
 
     private fun cellular(airplane: Boolean): RadioState {
         if (!airplane) return RadioState.ON
-        // Airplane mode switches the cellular radio off; a signal means it is not
+        // Airplane mode switches the cellular radio off; a signal means it is not. Android shows
+        // signals to apps from version 10: before, Airplane mode is the check
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return RadioState.OFF
         val telephony = context.getSystemService(TelephonyManager::class.java) ?: return RadioState.OFF
         val signal = runCatching { telephony.signalStrength?.cellSignalStrengths?.isNotEmpty() == true }.getOrNull()
         log("cellular airplane=$airplane signal=$signal")

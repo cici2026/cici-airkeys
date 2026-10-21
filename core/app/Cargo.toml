@@ -1,10 +1,14 @@
 [package]
 name = "airkeys-app"
-description = "The Airkeys phone app as a Crux core: every screen, rule and string, plus the runtime that the iOS and Android shells drive through uniffi (Lumen Code send and receive included)."
+description = "The Airkeys phone app as a Crux core: every screen and rule, plus the runtime that the iOS and Android shells drive through uniffi (Lumen Code send and receive included)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+readme = "../README.md"
 
 [lib]
 name = "airkeys"
@@ -17,12 +21,11 @@ uniffi = { workspace = true }
 lumen-code = { workspace = true }
 # QR codes in (a SeedQR); pure Rust, a port of quirc
 rqrr = { version = "0.11", default-features = false }
-serde = { workspace = true }
-serde_json = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-# examples/read_screens.rs decodes screenshots; never part of the app
+serde_json = { workspace = true }
+# examples read and write screenshots (read_screens, render_code); never part of the app
 png = "0.18"
 # writes QR codes for the SeedQR tests
 qrcode = { version = "0.14", default-features = false }

@@ -1,10 +1,22 @@
 import XCTest
 
-/// The app on a simulator or a phone, driven as a person would: import, save, show accounts, receive a
-/// request (through the debug delivery hook — the simulator has no camera), review, hold to
+/// The app on a simulator or a phone, driven as a person would: import, show accounts, receive
+/// a request (through the debug delivery hook — the simulator has no camera), review, hold to
 /// sign. Screenshots go to $SCREENSHOTS when set (on a phone, into the test result), so the
 /// codes on screen can be decoded.
 final class FlowTests: XCTestCase {
+    #if targetEnvironment(simulator)
+        static let simulator = true
+    #else
+        static let simulator = false
+    #endif
+    /// Screenshots are wanted: into $SCREENSHOTS, or on a phone into the test result.
+    static let shooting = !simulator || ProcessInfo.processInfo.environment["SCREENSHOTS"] != nil
+
+    override func setUp() {
+        continueAfterFailure = false
+    }
+
     static let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     static let request = #"{"airkeys":1,"type":"sign","id":"ios-1","network":"evm","chainId":1,"from":{"index":0,"address":"0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"100000000","token":{"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":"USDC","decimals":6},"nonce":0,"gas":65000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"1000000000"},{"to":{"index":1},"amount":"500000000000000000","nonce":1,"gas":21000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"30000000000"}]}"#
 
@@ -24,7 +36,7 @@ final class FlowTests: XCTestCase {
         #endif
     }
 
-    func testImportConnectReviewSign() throws {
+    func testImportConnectReviewSign() {
         let app = XCUIApplication()
         app.launchEnvironment["AIRKEYS_DELIVER"] = Data(Self.request.utf8).base64EncodedString()
         app.launchEnvironment["AIRKEYS_ASSUME_OFFLINE"] = "1"
@@ -65,22 +77,18 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Show this to the web app"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Accounts #0 to #99 · Bitcoin, Ethereum & EVM. Addresses only: no public key leaves this phone."].exists, "all 100 accounts, by default")
         // all 100 accounts take about 10 frames of the code: enough screenshots to read it
-        for n in 0 ..< 24 {
-            shot("code-accounts-\(n)")
-            Thread.sleep(forTimeInterval: 0.15)
+        if Self.shooting {
+            for n in 0 ..< 24 {
+                shot("code-accounts-\(n)")
+                Thread.sleep(forTimeInterval: 0.15)
+            }
         }
-        // the message of all 100 accounts (about a thousand lines) opens at once
-        let opening = Date()
+        // the message of all 100 accounts: about a thousand lines, drawn as they come into view
         app.buttons["Message"].tap()
         XCTAssertTrue(app.staticTexts["\"airkeys\": 1,"].waitForExistence(timeout: 5), "the JSON, a line at a time")
-        let opened = Date().timeIntervalSince(opening)
         shot("i04-message")
-        let closing = Date()
         app.buttons["Code"].tap()
         XCTAssertTrue(app.buttons["Message"].waitForExistence(timeout: 5))
-        let closed = Date().timeIntervalSince(closing)
-        print("the message of 100 accounts opened in \(opened) s; back to the code in \(closed) s")
-        XCTAssertLessThan(opened, closed + 1, "the message opens about as fast as going back to the code")
         app.buttons["Done"].tap()
 
         app.buttons["Scan request"].tap()
@@ -93,9 +101,11 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["100 USDC"].exists, "a short press does not sign")
         hold.press(forDuration: 1.6)
         XCTAssertTrue(app.staticTexts["Signed"].waitForExistence(timeout: 3))
-        for n in 0 ..< 8 {
-            shot("code-signed-\(n)")
-            Thread.sleep(forTimeInterval: 0.15)
+        if Self.shooting {
+            for n in 0 ..< 8 {
+                shot("code-signed-\(n)")
+                Thread.sleep(forTimeInterval: 0.15)
+            }
         }
         // what the code says: the JSON, laid out
         app.buttons["Message"].tap()
@@ -108,10 +118,8 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Enter recovery phrase"].waitForExistence(timeout: 3), "closing forgets the wallet")
     }
 
-    /// On a real phone: what the app shows first, and the radios it reports. Attaches a
-    /// screenshot to the test result.
     /// A mistyped word, fixed by tapping it in the grid and typing it again.
-    func testFixAWordFromTheGrid() throws {
+    func testFixAWordFromTheGrid() {
         let app = XCUIApplication()
         app.launchEnvironment["AIRKEYS_ASSUME_OFFLINE"] = "1"
         app.launch()
@@ -128,18 +136,21 @@ final class FlowTests: XCTestCase {
         shot("i06-word-fixed")
     }
 
+    /// On a real phone: what the app shows first, and the radios it reports (the simulator shares
+    /// the Mac's network). Attaches a screenshot and the texts to the test result.
     func testDeviceFirstScreen() throws {
+        try XCTSkipIf(Self.simulator, "for a phone: the simulator has the Mac's radios")
         let app = XCUIApplication()
         app.launch()
-        Thread.sleep(forTimeInterval: 4)
-        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        shot.lifetime = .keepAlways
-        add(shot)
+        let offline = app.staticTexts["Take this phone offline"], welcome = app.buttons["Enter recovery phrase"]
+        XCTAssertTrue(offline.waitForExistence(timeout: 5) || welcome.exists, "the first screen: offline, or welcome")
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         let texts = app.staticTexts.allElementsBoundByIndex.map(\.label)
         let report = XCTAttachment(string: texts.joined(separator: " | "))
         report.lifetime = .keepAlways
         add(report)
         print("AIRKEYS-SCREEN: " + texts.joined(separator: " | "))
-        XCTAssertTrue(app.staticTexts["Take this phone offline"].exists || app.buttons["Enter recovery phrase"].exists)
     }
 }

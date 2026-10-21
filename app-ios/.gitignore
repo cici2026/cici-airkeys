@@ -4,3 +4,7 @@ AirkeysCoreKit/Artifacts/
 AirkeysCoreKit/Sources/AirkeysCore/AirkeysCore.swift
 build/
 build-device/
+# Xcode's state for the local package
+AirkeysCoreKit/.swiftpm/
+# this machine's signing team (Config/Local.xcconfig.example)
+Config/Local.xcconfig

@@ -25,6 +25,7 @@ use crux_core::{App, Command};
 use std::ops::Range;
 use zeroize::{Zeroize, Zeroizing};
 
+/// What the app asks of the world: a new view, something of the platform, camera-code work.
 #[effect]
 pub enum Effect {
     Render(RenderOperation),
@@ -32,15 +33,14 @@ pub enum Effect {
     Code(CodeOp),
 }
 
+/// What happens to the app: a person's action, or the runtime's news.
 pub enum Event {
+    /// Something the person did (or the shell observed).
     Action(Action),
     /// A complete Lumen Code transfer (from the runtime).
     Received(Vec<u8>),
     /// Reception progress, in fountain symbols (from the runtime).
-    Progress {
-        received: u32,
-        needed: u32,
-    },
+    Progress { received: u32, needed: u32 },
     /// The payload of a QR code (from the runtime).
     QrScanned(Vec<u8>),
 }
@@ -118,9 +118,11 @@ struct Platform {
     showing: Option<String>,
 }
 
+/// Everything the app knows, in memory only; the open wallet among it.
 pub struct Model {
     rev: u64,
-    /// Wi-Fi, Bluetooth, mobile data, as the shell last reported them.
+    /// Wi-Fi, Bluetooth, mobile data and any network connection, as the shell last reported
+    /// them.
     radios: [RadioState; 4],
     toast: Option<String>,
     phase: Phase,
@@ -145,6 +147,7 @@ impl Default for Model {
     }
 }
 
+/// The Airkeys app, for Crux.
 #[derive(Default)]
 pub struct Airkeys;
 
@@ -162,26 +165,28 @@ fn haptic(kind: Haptic) -> Cmd {
     notify(Request::Haptic { kind })
 }
 
-const NETWORK_ORDER: [Network; 2] = [Network::Bitcoin, Network::Evm];
-
 /// The rows of the offline check: what to do while one is on, and what "still active" means.
-const RADIOS: [(&str, &str, &str); 4] = [
+const RADIOS: [(RadioKind, &str, &str, &str); 4] = [
     (
+        RadioKind::Wifi,
         "Wi-Fi",
         "Switch Wi-Fi off.",
         "Switched off, but the phone still scans for Wi-Fi networks to find its location. Turn off Wi-Fi scanning (in Location settings), or turn Location off.",
     ),
     (
+        RadioKind::Bluetooth,
         "Bluetooth",
         "Switch Bluetooth off.",
         "Switched off, but still working, usually for Bluetooth scanning (in Location settings). Turn that off, or turn Location off.",
     ),
     (
+        RadioKind::MobileData,
         "Mobile data",
         "Turn on Airplane mode.",
         "Airplane mode is on, but the phone still has a cellular signal.",
     ),
     (
+        RadioKind::Network,
         "Network connection",
         "Disconnect every network: Wi-Fi, a cable, tethering, a VPN.",
         "The phone still has a network: tethering, USB, Ethernet or VPN. Disconnect it.",
@@ -396,18 +401,20 @@ impl Airkeys {
                 model.phase = Phase::Import { text: Zeroizing::new(String::new()) };
             }
             Action::PhraseInput { text } => {
+                let text = Zeroizing::new(text);
                 if let Phase::Import { text: t } = &mut model.phase {
-                    *t = Zeroizing::new(autocomplete(t, &text));
+                    *t = autocomplete(t, &text);
                 }
             }
             Action::Suggestion { word } => {
+                let word = Zeroizing::new(word);
                 if let Phase::Import { text } = &mut model.phase {
-                    *text = Zeroizing::new(complete_last(text, &word));
+                    *text = complete_last(text, &word);
                 }
             }
             Action::PhraseDone => {
                 if let Phase::Import { text } = &mut model.phase {
-                    *text = Zeroizing::new(expand(text, true));
+                    *text = expand(text, true);
                     match Mnemonic::parse(text) {
                         Ok(phrase) => {
                             let typed = text.clone();
@@ -419,6 +426,7 @@ impl Airkeys {
                 }
             }
             Action::PassphraseInput { passphrase: p } => {
+                let p = Zeroizing::new(p);
                 if let Phase::Passphrase { passphrase, problem, .. } = &mut model.phase {
                     *passphrase = Zeroizing::new(p.chars().take(256).collect());
                     *problem = None;
@@ -462,14 +470,14 @@ impl Airkeys {
             Action::ToggleNetwork { network } => {
                 if let Phase::Connect { selected, .. } = &mut model.phase {
                     let n: Network = network.into();
-                    let i = NETWORK_ORDER.iter().position(|x| *x == n).unwrap();
+                    let i = Network::ALL.iter().position(|x| *x == n).unwrap();
                     selected[i] = !selected[i];
                 }
             }
             Action::ShowAccounts if open => {
                 if let Phase::Connect { selected, all } = model.phase {
                     let networks: Vec<Network> =
-                        NETWORK_ORDER.iter().zip(selected).filter(|(_, s)| *s).map(|(n, _)| *n).collect();
+                        Network::ALL.iter().zip(selected).filter(|(_, s)| *s).map(|(n, _)| *n).collect();
                     let indexes = if all { 0..ACCOUNTS } else { model.index..model.index + 1 };
                     if networks.is_empty() {
                         model.toast = Some("Choose at least one network.".into());
@@ -545,37 +553,54 @@ impl Airkeys {
 /// of exactly one word in the list (every BIP-39 word is unique by its first four letters):
 /// "aban " becomes "abandon ". Nothing changes under the person's fingers mid-word, deleting
 /// never expands, and a pasted phrase of prefixes expands in one go.
-fn autocomplete(old: &str, new: &str) -> String {
-    let text: String = new.chars().take(400).collect();
+///
+/// The phrase passes through here a keystroke at a time: every copy is wiped when dropped, and
+/// buffers are sized up front so that growing one never leaves the old one behind.
+fn autocomplete(old: &str, new: &str) -> Zeroizing<String> {
+    let mut text = Zeroizing::new(String::with_capacity(new.len().min(1600)));
+    text.extend(new.chars().take(400));
     // typing — at the end, or a word fixed in the middle — completes the finished words and
     // keeps one space between words; deleting changes nothing
     if text.chars().count() <= old.chars().count() {
         return text;
     }
-    // where the keystroke landed: the word there is still being typed, unless the keystroke
-    // was the space that finishes it
-    let at = old
-        .char_indices()
-        .zip(text.char_indices())
-        .find(|((_, a), (_, b))| a != b)
-        .map_or(old.len(), |((i, _), _)| i);
-    let typed_to = at + (text.len() - old.len());
+    // where the keystroke landed — the end of what changed, found from both ends in characters
+    // (a paste may replace text of another length in bytes): the word there is still being
+    // typed, unless the keystroke was the space that finishes it
+    let (old_chars, new_chars) = (old.chars().count(), text.chars().count());
+    let same_start = old.chars().zip(text.chars()).take_while(|(a, b)| a == b).count();
+    let same_end = old
+        .chars()
+        .rev()
+        .zip(text.chars().rev())
+        .take(old_chars.min(new_chars) - same_start)
+        .take_while(|(a, b)| a == b)
+        .count();
+    let typed_to = text.char_indices().nth(new_chars - same_end).map_or(text.len(), |(i, _)| i);
     let finished = text[..typed_to].ends_with(char::is_whitespace);
     let done = expand_except(&text, false, (!finished).then_some(typed_to));
-    let mut tidy = done.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut tidy = Zeroizing::new(String::with_capacity(done.len() + 1));
+    for (k, word) in done.split_whitespace().enumerate() {
+        if k > 0 {
+            tidy.push(' ');
+        }
+        tidy.push_str(word);
+    }
     if done.ends_with(char::is_whitespace) && !tidy.is_empty() {
         tidy.push(' ');
     }
     tidy
 }
+
 /// Expands the finished words of `text` (and the last one too when `all`).
-fn expand(text: &str, all: bool) -> String {
+fn expand(text: &str, all: bool) -> Zeroizing<String> {
     expand_except(text, all, None)
 }
 
 /// [`expand`], leaving alone the word that ends at or contains byte `keep` (the one being typed).
-fn expand_except(text: &str, all: bool, keep: Option<usize>) -> String {
-    let mut out = String::with_capacity(text.len() + 16);
+fn expand_except(text: &str, all: bool, keep: Option<usize>) -> Zeroizing<String> {
+    // a word grows by at most 7 letters, and words are at least 2 bytes apart
+    let mut out = Zeroizing::new(String::with_capacity(text.len() * 5 + 16));
     let mut rest = text;
     while let Some(i) = rest.find(|c: char| !c.is_whitespace()) {
         out.push_str(&rest[..i]);
@@ -584,7 +609,7 @@ fn expand_except(text: &str, all: bool, keep: Option<usize>) -> String {
         let end = rest.find(char::is_whitespace);
         let token = &rest[..end.unwrap_or(rest.len())];
         let typing = keep.is_some_and(|k| (start..=start + token.len()).contains(&k));
-        let lower = token.to_lowercase();
+        let lower = Zeroizing::new(token.to_lowercase());
         match completions(&lower, 2)[..] {
             [only] if (end.is_some() || all) && !typing && word_index(&lower).is_none() => out.push_str(only),
             _ => out.push_str(token),
@@ -595,9 +620,13 @@ fn expand_except(text: &str, all: bool, keep: Option<usize>) -> String {
     out
 }
 /// The text with its last, unfinished word replaced by `word` and a space.
-fn complete_last(text: &str, word: &str) -> String {
+fn complete_last(text: &str, word: &str) -> Zeroizing<String> {
     let keep = text.trim_end_matches(|c: char| !c.is_whitespace()).len();
-    format!("{}{word} ", &text[..keep])
+    let mut out = Zeroizing::new(String::with_capacity(keep + word.len() + 1));
+    out.push_str(&text[..keep]);
+    out.push_str(word);
+    out.push(' ');
+    out
 }
 
 /// What the import screen says about the phrase typed so far.
@@ -641,7 +670,8 @@ fn phrase_input(text: &str) -> PhraseInput {
                 .into(),
         );
     }
-    PhraseInput { text: text.to_string(), words, suggestions, problem, valid }
+    let can_continue = words.len() >= Mnemonic::WORD_COUNTS[0] && problem.is_none();
+    PhraseInput { text: text.to_string(), words, suggestions, problem, valid, can_continue }
 }
 
 fn account_row(wallet: &Wallet, network: Network, index: u32) -> AccountRow {
@@ -657,10 +687,9 @@ fn account_row(wallet: &Wallet, network: Network, index: u32) -> AccountRow {
 
 fn review_view(r: &Review) -> ReviewView {
     let n = r.transfers.len();
-    let sign_label = match (r.network, n) {
-        (Network::Bitcoin, _) | (_, 1) => "Sign".to_string(),
-        _ => format!("Sign {n} transactions"),
-    };
+    // a Bitcoin request is one transaction, whatever it pays; an EVM request one per transfer
+    let several = r.network == Network::Evm && n > 1;
+    let hold_label = if several { format!("Hold to sign {n} transactions") } else { "Hold to sign".into() };
     ReviewView {
         network: r.network.into(),
         chain: r.chain.clone(),
@@ -670,7 +699,9 @@ fn review_view(r: &Review) -> ReviewView {
         transfers: r
             .transfers
             .iter()
-            .map(|t| TransferView {
+            .enumerate()
+            .map(|(k, t)| TransferView {
+                label: several.then(|| format!("Transaction {}", k + 1)),
                 to: t.to.clone(),
                 own_index: t.own,
                 amount: t.amount.clone(),
@@ -685,7 +716,7 @@ fn review_view(r: &Review) -> ReviewView {
         details: r.details.iter().map(|(l, v)| Detail { label: l.clone(), value: v.clone() }).collect(),
         warnings: r.warnings.clone(),
         notices: r.notices.clone(),
-        sign_label,
+        hold_label,
     }
 }
 
@@ -729,7 +760,8 @@ impl App for Airkeys {
                 radios: RADIOS
                     .iter()
                     .zip(model.radios)
-                    .map(|(&(name, on, active), state)| RadioRow {
+                    .map(|(&(kind, name, on, active), state)| RadioRow {
+                        kind,
                         name: name.to_string(),
                         state,
                         detail: match state {
@@ -752,7 +784,7 @@ impl App for Airkeys {
             },
             (Phase::Home, Some(w)) => Screen::Home {
                 index: model.index,
-                accounts: NETWORK_ORDER.iter().map(|&n| account_row(w, n, model.index)).collect(),
+                accounts: Network::ALL.iter().map(|&n| account_row(w, n, model.index)).collect(),
             },
             (Phase::Account { network }, Some(w)) => {
                 Screen::Account { account: account_row(w, *network, model.index) }
@@ -776,7 +808,7 @@ impl App for Airkeys {
                         selected: *all,
                     },
                 ],
-                choices: NETWORK_ORDER
+                choices: Network::ALL
                     .iter()
                     .zip(selected)
                     .map(|(n, s)| NetworkChoice {
@@ -820,7 +852,11 @@ impl App for Airkeys {
             rev: model.rev,
             screen,
             toast: model.toast.clone(),
-            version: format!("Airkeys {} · protocol v1", env!("CARGO_PKG_VERSION")),
+            version: format!(
+                "Airkeys {} · protocol v{}",
+                env!("CARGO_PKG_VERSION"),
+                airkeys_wallet::protocol::VERSION
+            ),
         }
     }
 }
@@ -830,27 +866,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn replacing_text_of_any_script_never_panics() {
+        // more characters in fewer bytes, a replacement ending inside a multi-byte character,
+        // an emoji pasted over a word
+        for (old, new) in [("éé", "abc"), ("ab", "xé√"), ("aban", "😀 aban "), ("é aban", "aban aban ")]
+        {
+            let _ = autocomplete(old, new);
+        }
+        assert_eq!(*autocomplete("é", "é aban "), "é abandon ", "a finished word still completes");
+    }
+
+    #[test]
     fn completing_the_last_word() {
-        assert_eq!(complete_last("abandon aba", "abandon"), "abandon abandon ");
-        assert_eq!(complete_last("zo", "zoo"), "zoo ");
-        assert_eq!(complete_last("abandon ", "about"), "abandon about ");
+        assert_eq!(*complete_last("abandon aba", "abandon"), "abandon abandon ");
+        assert_eq!(*complete_last("zo", "zoo"), "zoo ");
+        assert_eq!(*complete_last("abandon ", "about"), "abandon about ");
     }
 
     #[test]
     fn finished_prefixes_expand_while_typing_forward() {
-        assert_eq!(autocomplete("", "a"), "a");
-        assert_eq!(autocomplete("ab", "aba"), "aba", "nothing changes mid-word");
-        assert_eq!(autocomplete("aban", "aban "), "abandon ");
-        assert_eq!(autocomplete("Aban", "Aban "), "abandon ");
-        assert_eq!(autocomplete("abandon actu", "abandon actu "), "abandon actual ");
+        assert_eq!(*autocomplete("", "a"), "a");
+        assert_eq!(*autocomplete("ab", "aba"), "aba", "nothing changes mid-word");
+        assert_eq!(*autocomplete("aban", "aban "), "abandon ");
+        assert_eq!(*autocomplete("Aban", "Aban "), "abandon ");
+        assert_eq!(*autocomplete("abandon actu", "abandon actu "), "abandon actual ");
         // a word that begins others stays itself; an ambiguous prefix stays as typed
-        assert_eq!(autocomplete("act", "act "), "act ");
-        assert_eq!(autocomplete("ab", "ab "), "ab ");
+        assert_eq!(*autocomplete("act", "act "), "act ");
+        assert_eq!(*autocomplete("ab", "ab "), "ab ");
         // deleting never expands
-        assert_eq!(autocomplete("abandon abou ", "abandon abou"), "abandon abou");
+        assert_eq!(*autocomplete("abandon abou ", "abandon abou"), "abandon abou");
         // a pasted phrase of prefixes expands in one go, except the word still open
-        assert_eq!(autocomplete("", "aban abou zoo"), "abandon about zoo");
-        assert_eq!(expand("aban abou", true), "abandon about");
+        assert_eq!(*autocomplete("", "aban abou zoo"), "abandon about zoo");
+        assert_eq!(*expand("aban abou", true), "abandon about");
     }
 
     #[test]

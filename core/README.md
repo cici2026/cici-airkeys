@@ -1,12 +1,14 @@
 # core — the phone's brain
 
 Rust, shared by the iOS and Android apps. Everything that decides — keys, addresses,
-transactions, the protocol's checks, every screen and sentence a person sees — is here; the
-shells only draw and operate the camera and screen.
+transactions, the protocol's checks, which screen comes next and what it says about the wallet
+and a request — is here; the shells draw it and operate the camera and screen.
 
 ```
 wallet/    airkeys-wallet: pure functions, no I/O
   keys       BIP-39 (phrase, SeedQR), BIP-32 hardened; Wallet = the two account roots
+  amount     decimal amounts as the protocol writes them, and their display
+  hash       SHA-256d, HASH160, Keccak-256, hex
   bitcoin    P2WPKH accounts, recipient parsing, previous-tx checks, BIP-143 signing
   evm        EIP-55, RLP, EIP-1559 / legacy EIP-155 transactions, ERC-20 transfer
   protocol   the JSON messages of docs/PROTOCOL.md, strict
@@ -29,15 +31,19 @@ Dependencies are few and mainstream: RustCrypto (`k256`, `sha2`, `sha3`, `hmac`,
 
 ```sh
 cargo test --workspace --release
+cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
-# the phone's signing path as a command line (reads a request on stdin, prints the reply)
+# the phone's signing path as a command line (reads a request on stdin, prints the reply);
+# test phrases only — a phrase in an environment variable ends up in shell history
 AIRKEYS_PHRASE="…" cargo run --release -p airkeys-wallet --example sign < request.json
 AIRKEYS_PHRASE="…" cargo run --release -p airkeys-wallet --example sign -- accounts evm 0 1 2
 
 cargo run --release -p airkeys-wallet --example bench        # keys, review, signing
 cargo run --release -p airkeys-app --example scan_bench      # camera-frame decoding
-cargo run --release -p airkeys-wallet --example vectors      # regenerates the web app's test vectors
+# the web app's test vectors (CI checks they match the core)
+cargo run -q --release -p airkeys-wallet --example vectors > ../app-web/airkeys.app/src/lib/vectors.json
 ```
 
 Other `app` examples: `phone` (the app without a phone: films its code for a fake webcam),
@@ -47,11 +53,11 @@ Other `app` examples: `phone` (the app without a phone: films its code for a fak
 
 | Script | Against |
 |---|---|
-| `evm.mjs` | an anvil fork of Ethereum mainnet (`EVM_FORK_URL`); needs Foundry |
+| `evm.mjs` | an anvil fork of Ethereum mainnet (`EVM_FORK_URL`, default a public node); needs Foundry |
 | `bitcoin.mjs` | Bitcoin Core regtest (`BITCOIND=/path/to/bitcoind`) |
-| `recovery.mjs` | docs/RECOVERY.md with Bitcoin Core (`BITCOIND`) and `cast` |
+| `recovery.mjs` | docs/RECOVERY.md with Bitcoin Core (`BITCOIND`), `cast` and `python3` |
 
-Run them from `core/`: `node e2e/evm.mjs`.
+Run them from `core/` with Node 18 or later: `node e2e/evm.mjs`.
 
 ## Apps
 

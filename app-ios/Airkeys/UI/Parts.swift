@@ -68,7 +68,7 @@ struct IconAction: View {
     }
 }
 
-enum ButtonKind { case primary, secondary, danger }
+enum ButtonKind { case primary, secondary }
 
 struct AkButton: View {
     let title: String
@@ -97,7 +97,6 @@ struct AkButton: View {
         switch kind {
         case .primary: Ink.lamp
         case .secondary: Ink.raised
-        case .danger: Ink.danger.opacity(0.14)
         }
     }
 
@@ -105,7 +104,6 @@ struct AkButton: View {
         switch kind {
         case .primary: Ink.onLamp
         case .secondary: Ink.text
-        case .danger: Ink.danger
         }
     }
 
@@ -113,7 +111,6 @@ struct AkButton: View {
         switch kind {
         case .primary: .clear
         case .secondary: Ink.stroke
-        case .danger: Ink.danger.opacity(0.5)
         }
     }
 }
@@ -159,6 +156,11 @@ struct HoldButton: View {
                     holding = false
                 }
         )
+        // a screen that changes mid-hold takes the hold with it
+        .onDisappear {
+            task?.cancel()
+            task = nil
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityIdentifier("hold-to-confirm")
@@ -278,47 +280,17 @@ struct Mark: View {
     }
 }
 
-struct WordGrid: View {
-    let words: [String]
-
-    var body: some View {
-        let rows = (words.count + 1) / 2
-        Card(padding: 12) {
-            ForEach(0 ..< rows, id: \.self) { r in
-                HStack(spacing: 8) {
-                    ForEach(0 ..< 2, id: \.self) { c in
-                        let i = c * rows + r
-                        HStack(spacing: 0) {
-                            if i < words.count {
-                                Text("\(i + 1)").font(.system(size: 13, design: .monospaced)).foregroundStyle(Ink.faint).frame(width: 26, alignment: .trailing)
-                                Text(words[i]).font(.system(size: 16, weight: .medium, design: .monospaced)).foregroundStyle(Ink.text).padding(.leading, 10)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 9)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Ink.raised))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// A field for secrets and addresses: no autocorrect, no keyboard suggestions or learning.
+/// A field for secrets: no autocorrect, no keyboard suggestions or learning.
 struct Field: View {
     let placeholder: String
     @Binding var text: String
     var secret = false
-    var multiline = false
     var error = false
 
     var body: some View {
         Group {
             if secret {
                 SecureField("", text: $text, prompt: Text(placeholder).foregroundColor(Ink.faint))
-            } else if multiline {
-                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Ink.faint), axis: .vertical).lineLimit(4 ... 8)
             } else {
                 TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Ink.faint))
             }

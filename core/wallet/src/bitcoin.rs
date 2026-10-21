@@ -15,6 +15,7 @@ const LOCK_TIME: u32 = 0;
 const SEQUENCE: u32 = 0xffff_fffd;
 const SIGHASH_ALL: u8 = 1;
 
+/// The 33-byte compressed public key (SEC 1) of a key.
 pub fn compressed_pubkey(key: &SigningKey) -> [u8; 33] {
     key.verifying_key().to_sec1_point(true).as_bytes().try_into().expect("33 bytes")
 }
@@ -106,7 +107,7 @@ pub fn p2sh_script(hash: &[u8]) -> Vec<u8> {
 
 /// Every script that pays the key of the P2WPKH script `own`: itself, and the legacy (P2PKH)
 /// and nested (P2SH-P2WPKH) forms of the same key — all reveal or strand the same key.
-pub fn same_key_scripts(own: &[u8]) -> [Vec<u8>; 3] {
+pub(crate) fn same_key_scripts(own: &[u8]) -> [Vec<u8>; 3] {
     let hash = &own[2..];
     [own.to_vec(), p2pkh_script(hash), p2sh_script(&hash160(own))]
 }
@@ -227,6 +228,8 @@ pub fn parse_tx(raw: &[u8]) -> Result<PrevTx> {
 
 // ---------------------------------------------------------------- transfers
 
+/// A coin to spend: its transaction, its output number, and its value in satoshi (proven by
+/// the previous transaction before it gets here).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Input {
     /// Internal byte order.
@@ -235,6 +238,7 @@ pub struct Input {
     pub value: u64,
 }
 
+/// A payment: satoshi to a script.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Output {
     pub value: u64,
@@ -258,7 +262,8 @@ fn varint(out: &mut Vec<u8>, n: usize) {
         }
         _ => {
             out.push(0xfe);
-            out.extend_from_slice(&(n as u32).to_le_bytes());
+            let n = u32::try_from(n).expect("fewer than 2^32 items: a request is at most 1 MiB");
+            out.extend_from_slice(&n.to_le_bytes());
         }
     }
 }

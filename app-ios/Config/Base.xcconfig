@@ -1,0 +1,6 @@
+// Settings every build shares. Your own team and bundle ID go in Local.xcconfig (not committed):
+// copy Local.xcconfig.example to Local.xcconfig and fill it in.
+DEVELOPMENT_TEAM =
+AIRKEYS_BUNDLE_ID = app.airkeys
+
+#include? "Local.xcconfig"

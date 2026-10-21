@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "description": "End-to-end checks of what the phone signs, against real chain software.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "evm": "node evm.mjs",
     "bitcoin": "node bitcoin.mjs",

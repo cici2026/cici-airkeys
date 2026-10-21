@@ -2,23 +2,33 @@
 
 A SwiftUI shell around the Rust core (`core/app`). It draws the core's view model, sends it
 the person's actions, camera frames and radio states, and performs what it asks: camera on/off,
-keep the screen on, cover the screen while it is captured or the app is inactive, haptics.
+keep the screen on, protect the screens that show a phrase, haptics.
 
 ```
-project.yml          XcodeGen spec: the Airkeys app and its UI tests (iOS 17+)
-Airkeys/App/         AirkeysApp.swift (scene, cover), Shell.swift (the core, radios), Camera.swift
+project.yml          XcodeGen spec: the Airkeys app and its UI tests (iOS 17+), and the one
+                     source of Airkeys/Resources/Info.plist
+Config/              Base.xcconfig; your signing team goes in Local.xcconfig (not committed)
+Airkeys/App/         AirkeysApp.swift (scene, cover, keyboards), Shell.swift (the core, radios),
+                     Camera.swift
 Airkeys/UI/          Screens.swift, Review.swift, Parts.swift, PhraseEditor.swift, Theme.swift
+Airkeys/Resources/   assets, Info.plist, PrivacyInfo.xcprivacy (nothing tracked or collected)
 AirkeysCoreKit/      Swift package: the core's xcframework + generated Swift (both built, not committed)
-AirkeysUITests/      import → connect → review → sign, on the simulator
+AirkeysUITests/      import → connect → review → sign, on a simulator or a phone
+scripts/             make-icon.swift (the app icon)
 ```
 
 Radios: Wi-Fi from `NWPathMonitor`, the cellular radio from `CTTelephonyNetworkInfo`, Bluetooth
 from CoreBluetooth (the one permission prompt besides the camera's). iOS has no API for a Wi-Fi
 radio that is on but not joined to a network — see [DESIGN.md](../docs/DESIGN.md#air-gap-enforced).
 
+Screens with a phrase or passphrase: only Apple's keyboard (third-party keyboards are refused
+in the whole app), and the screen is covered while it is recorded or mirrored and in the app
+switcher. iOS lets no app block screenshots.
+
 ## Build
 
-Needs Xcode 26, Rust (see `core/rust-toolchain.toml`) and `brew install xcodegen`.
+Needs a Mac with Apple silicon, Xcode 26, Rust (see `core/rust-toolchain.toml`) and
+`brew install xcodegen`.
 
 ```sh
 ../core/scripts/build-ios.sh     # after every change in core/: xcframework + Swift bindings
@@ -27,16 +37,23 @@ open Airkeys.xcodeproj
 ```
 
 `AIRKEYS_IOS_SIM_ONLY=1 ../core/scripts/build-ios.sh` builds the simulator slice only. To run on
-a device, set your team in `project.yml` (`DEVELOPMENT_TEAM`).
+a phone, copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set your team and a
+bundle ID of your own.
 
 ## Testing
 
+Grant the simulator's camera first, then run the UI tests:
+
 ```sh
+xcrun simctl privacy booted grant camera app.airkeys
 xcodebuild -project Airkeys.xcodeproj -scheme Airkeys \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
 
+`TEST_RUNNER_SCREENSHOTS=<dir>` saves the screenshots (the codes on screen among them, which
+`core/app/examples/read_screens` decodes); on a phone they go into the test result. On a phone
+every radio must really be off: the shortcut below is for the simulator only.
+
 Debug builds only: `AIRKEYS_DELIVER=<base64 message>` hands the scan screen a message as if
 scanned, and on the simulator `AIRKEYS_ASSUME_OFFLINE=1` treats the radios as off (the
-simulator shares the Mac's network). Grant the camera beforehand with
-`xcrun simctl privacy booted grant camera app.airkeys`.
+simulator shares the Mac's network). Never open a wallet that holds funds in a debug build.

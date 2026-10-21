@@ -2,12 +2,12 @@
 //! web app. The phone uses names, native coins and the token list; RPC and explorer URLs are
 //! for the web app and ignored here.
 //!
-//! [`registry/networks.json`]: ../../../registry/networks.json
+//! [`registry/networks.json`]: https://github.com/mondaylabsltd/airkeys/blob/main/registry/networks.json
 
-use crate::Network;
 use serde::Deserialize;
 use std::sync::LazyLock;
 
+/// A token the registry lists for a chain.
 #[derive(Debug, Deserialize)]
 pub struct Token {
     pub address: String,
@@ -15,6 +15,7 @@ pub struct Token {
     pub decimals: u8,
 }
 
+/// A chain the registry lists: its name, native coin and tokens.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chain {
@@ -30,6 +31,7 @@ pub struct Chain {
     pub testnet: bool,
 }
 
+/// Every network Airkeys knows by name.
 #[derive(Debug, Deserialize)]
 pub struct Registry {
     pub bitcoin: Chain,
@@ -40,21 +42,15 @@ static REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
     serde_json::from_str(include_str!("../../../registry/networks.json")).expect("registry/networks.json")
 });
 
+/// The registry, compiled in.
 pub fn get() -> &'static Registry {
     &REGISTRY
 }
 
 impl Registry {
+    /// The listed EVM chain with this id, if any.
     pub fn evm_chain(&self, chain_id: u64) -> Option<&Chain> {
         self.evm.iter().find(|c| c.chain_id == Some(chain_id))
-    }
-
-    /// The chain of a non-EVM network.
-    pub fn chain(&self, network: Network) -> Option<&Chain> {
-        match network {
-            Network::Bitcoin => Some(&self.bitcoin),
-            Network::Evm => None,
-        }
     }
 }
 

@@ -30,9 +30,10 @@ const CODE_MODE: usize = 1;
 const CODE_ECC: usize = 2;
 /// The quiet zone around the code, in cells.
 const QUIET: usize = 2;
-/// Messages are at most 1 MiB (PROTOCOL §2).
-const MAX_RECEIVE: u64 = 1 << 20;
+/// Messages are at most 1 MiB (PROTOCOL §2.6).
+const MAX_RECEIVE: u64 = airkeys_wallet::protocol::MAX_MESSAGE as u64;
 
+/// What an event led to: the new view, and the requests to perform.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct Update {
     pub view: ViewModel,
@@ -95,6 +96,8 @@ impl Drop for Reception {
     }
 }
 
+/// The phone app's core, as the shells hold it: one per process, for as long as the app runs.
+/// Every call is synchronous and may come from any thread.
 #[derive(uniffi::Object)]
 pub struct AirkeysCore {
     core: Mutex<Core<Airkeys>>,
@@ -109,6 +112,7 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[uniffi::export]
 impl AirkeysCore {
+    /// A core with no wallet open, on the offline check.
     #[uniffi::constructor]
     pub fn new() -> Arc<Self> {
         Arc::new(AirkeysCore {
@@ -123,6 +127,7 @@ impl AirkeysCore {
         self.event(Event::Action(action))
     }
 
+    /// The view to draw now.
     pub fn view(&self) -> ViewModel {
         lock(&self.core).view()
     }
@@ -309,11 +314,17 @@ impl Reception {
         let (w, h) = (f.width as usize, f.height as usize);
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let ys = f.y.row_stride as usize;
-        if w < 16 || h < 16 || ys < w || f.y.data.len() < (h - 1) * ys + w {
+        // sizes come from the platform: checked, so a strange frame cannot overflow (armv7)
+        let y_end = (h - 1).checked_mul(ys).and_then(|n| n.checked_add(w));
+        if w < 16 || h < 16 || ys < w || y_end.is_none_or(|end| f.y.data.len() < end) {
             return false;
         }
         let fits = |p: &Plane| {
-            ((ch - 1) * p.row_stride as usize + (cw - 1) * p.pixel_stride as usize) < p.data.len()
+            (ch - 1)
+                .checked_mul(p.row_stride as usize)
+                .zip((cw - 1).checked_mul(p.pixel_stride as usize))
+                .and_then(|(a, b)| a.checked_add(b))
+                .is_some_and(|last| last < p.data.len())
         };
         if !fits(&f.u) || !fits(&f.v) {
             return false;

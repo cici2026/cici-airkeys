@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import app.airkeys.core.CodeFrame
 import app.airkeys.core.codeFps
-import kotlinx.coroutines.delay
 import kotlin.math.floor
 
 /**
@@ -37,11 +37,16 @@ fun CodeView(next: (Int, Int) -> CodeFrame?, modifier: Modifier = Modifier) {
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
     var area by remember { mutableStateOf(IntSize.Zero) }
     LaunchedEffect(Unit) {
-        val interval = 1000L / codeFps().toLong()
+        val interval = 1_000_000_000L / codeFps().toLong()
+        var due = 0L
+        // on the display's frames: a steady code_fps, and nothing while the app is out of sight
         while (true) {
-            val a = area
-            if (a.width > 0 && a.height > 0) next(a.width, a.height)?.let { image = it.toBitmap().asImageBitmap() }
-            delay(interval)
+            withFrameNanos { now ->
+                if (now < due) return@withFrameNanos
+                due = if (now - due > interval) now + interval else due + interval
+                val a = area
+                if (a.width > 0 && a.height > 0) next(a.width, a.height)?.let { image = it.toBitmap().asImageBitmap() }
+            }
         }
     }
     Box(

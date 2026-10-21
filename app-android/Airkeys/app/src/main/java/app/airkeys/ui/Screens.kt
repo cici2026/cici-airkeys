@@ -9,8 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -59,9 +57,9 @@ import app.airkeys.core.JsonKind
 import app.airkeys.core.JsonPiece
 import app.airkeys.core.Action
 import app.airkeys.core.CodeFrame
-import app.airkeys.core.NetworkKind
 import app.airkeys.core.accountCount
 import app.airkeys.core.PhraseInput
+import app.airkeys.core.RadioKind
 import app.airkeys.core.RadioState
 import app.airkeys.core.ReviewView
 import app.airkeys.core.Screen
@@ -215,7 +213,7 @@ private fun Offline(s: Screen.Offline) {
         )
         val context = LocalContext.current
         Card(padding = 6.dp) {
-            for ((i, r) in s.radios.withIndex()) {
+            for (r in s.radios) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(r.name, style = Type.body, modifier = Modifier.weight(1f))
@@ -232,7 +230,7 @@ private fun Offline(s: Screen.Offline) {
                             "Open settings",
                             style = Type.small.copy(color = Ink.lamp, fontWeight = FontWeight.SemiBold),
                             modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(8.dp))
-                                .clickable { openRadioSettings(context, i, r.state) }.padding(vertical = 4.dp),
+                                .clickable { openRadioSettings(context, r.kind, r.state) }.padding(vertical = 4.dp),
                         )
                     }
                 }
@@ -243,18 +241,18 @@ private fun Offline(s: Screen.Offline) {
 }
 
 /**
- * The system screen that turns a radio off, in the order of the core's rows: Wi-Fi, Bluetooth,
- * mobile data, network. A radio that is "still active" while switched off is scanning for
- * Location: its switch is under Location's scanning settings. Phones that lack a screen get the
- * next best one.
+ * The system screen that turns a radio off. A radio that is "still active" while switched off
+ * is scanning for Location: its switch is under Location's scanning settings. Phones that lack
+ * a screen get the next best one.
  */
-private fun openRadioSettings(context: Context, row: Int, state: RadioState) {
+private fun openRadioSettings(context: Context, kind: RadioKind, state: RadioState) {
     val scanning = listOf("android.settings.LOCATION_SCANNING_SETTINGS", Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-    val tries = when (row) {
-        0 -> if (state == RadioState.ACTIVE) listOf("android.settings.WIFI_SCANNING_SETTINGS") + scanning else listOf(Settings.ACTION_WIFI_SETTINGS)
-        1 -> if (state == RadioState.ACTIVE) listOf("android.settings.BLUETOOTH_SCANNING_SETTINGS") + scanning else listOf(Settings.ACTION_BLUETOOTH_SETTINGS)
-        2 -> listOf(Settings.ACTION_AIRPLANE_MODE_SETTINGS)
-        else -> listOf(Settings.ACTION_WIRELESS_SETTINGS)
+    val active = state == RadioState.ACTIVE
+    val tries = when (kind) {
+        RadioKind.WIFI -> if (active) listOf("android.settings.WIFI_SCANNING_SETTINGS") + scanning else listOf(Settings.ACTION_WIFI_SETTINGS)
+        RadioKind.BLUETOOTH -> if (active) listOf("android.settings.BLUETOOTH_SCANNING_SETTINGS") + scanning else listOf(Settings.ACTION_BLUETOOTH_SETTINGS)
+        RadioKind.MOBILE_DATA -> listOf(Settings.ACTION_AIRPLANE_MODE_SETTINGS)
+        RadioKind.NETWORK -> listOf(Settings.ACTION_WIRELESS_SETTINGS)
     } + Settings.ACTION_SETTINGS
     for (action in tries) {
         if (runCatching { context.startActivity(Intent(action)) }.isSuccess) return
@@ -295,7 +293,6 @@ private fun Feature(icon: ImageVector, title: String, text: String) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Import(p: PhraseInput, act: (Action) -> ViewModel) {
     val focus = remember { FocusRequester() }
@@ -306,7 +303,7 @@ private fun Import(p: PhraseInput, act: (Action) -> ViewModel) {
     Page("Recovery phrase", onBack = { act(Action.Back) }, trailing = {
         IconAction(Icons.scan, "Scan SeedQR", { act(Action.Scan) }, Ink.dim)
     }, actions = {
-        PrimaryButton("Continue", { act(Action.PhraseDone) }, enabled = p.words.size >= 12 && p.problem == null)
+        PrimaryButton("Continue", { act(Action.PhraseDone) }, enabled = p.canContinue)
     }) {
         Text("Enter your recovery phrase", style = Type.title)
         Text("Type the first letters of each word and a space: Airkeys completes it.", style = Type.dim)
@@ -491,7 +488,7 @@ private fun Viewfinder() {
 private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
     var details by remember { mutableStateOf(false) }
     Page("Review", onBack = { act(Action.Reject) }, actions = {
-        HoldButton("Hold to ${r.signLabel.lowercase()}", { act(Action.Sign) }, warn = r.warnings.isNotEmpty())
+        HoldButton(r.holdLabel, { act(Action.Sign) }, warn = r.warnings.isNotEmpty())
         SecondaryButton("Reject", { act(Action.Reject) })
     }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -507,9 +504,9 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
             }
         }
         for (w in r.warnings) Notice(w, Ink.warn)
-        r.transfers.forEachIndexed { i, t ->
+        for (t in r.transfers) {
             Card(border = if (!t.verified) Ink.warn.copy(alpha = 0.5f) else Ink.stroke) {
-                if (r.transfers.size > 1 && r.network != NetworkKind.BITCOIN) Label("Transaction ${i + 1}")
+                t.label?.let { Label(it) }
                 Text("${t.amount} ${t.asset}", style = Type.amount)
                 t.token?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {

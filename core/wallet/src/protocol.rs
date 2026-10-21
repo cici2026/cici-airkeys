@@ -1,6 +1,6 @@
 //! The Airkeys wire protocol, version 1: the three messages and their exact JSON
-//! ([`docs/PROTOCOL.md`](../../../docs/PROTOCOL.md)). What a request means and whether the
-//! phone signs it is [`crate::review`].
+//! ([`docs/PROTOCOL.md`](https://github.com/mondaylabsltd/airkeys/blob/main/docs/PROTOCOL.md)). What a request means and whether the
+//! phone signs it is [`review()`](crate::review()).
 
 use crate::amount::Amount;
 use crate::{Network, Result, bail, shown};
@@ -8,6 +8,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+/// The protocol version this crate speaks: the `airkeys` field of every message (PROTOCOL §8).
 pub const VERSION: u64 = 1;
 /// The largest message a receiver accepts (PROTOCOL §2.6).
 pub const MAX_MESSAGE: usize = 1 << 20;
@@ -42,6 +43,8 @@ pub struct Target {
     pub address: Option<String>,
 }
 
+/// The token an EVM transfer moves: its contract, and the symbol and decimals the request
+/// claims for it (checked against the registry, PROTOCOL §5.3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TokenRef {
@@ -52,6 +55,7 @@ pub struct TokenRef {
 
 // ---------------------------------------------------------------- sign requests
 
+/// A coin a Bitcoin request spends, with the whole transaction that created it (PROTOCOL §5.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct BtcInput {
@@ -61,6 +65,7 @@ pub struct BtcInput {
     pub prev_tx: String,
 }
 
+/// A payment of a Bitcoin request (PROTOCOL §5.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BtcOutput {
@@ -68,6 +73,7 @@ pub struct BtcOutput {
     pub amount: Amount,
 }
 
+/// The Bitcoin part of a `sign` request: one transaction (PROTOCOL §5.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BitcoinSign {
@@ -75,6 +81,8 @@ pub struct BitcoinSign {
     pub outputs: Vec<BtcOutput>,
 }
 
+/// One EVM transaction of a request: a native or token transfer, with its nonce and fees
+/// (PROTOCOL §5.2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct EvmTx {
@@ -92,6 +100,8 @@ pub struct EvmTx {
     pub gas_price: Option<Amount>,
 }
 
+/// The EVM part of a `sign` request: a chain and its transactions, in nonce order
+/// (PROTOCOL §5.2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct EvmSign {
@@ -99,6 +109,7 @@ pub struct EvmSign {
     pub txs: Vec<EvmTx>,
 }
 
+/// What a `sign` request asks for, by network.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Body {
     Bitcoin(BitcoinSign),
@@ -106,6 +117,7 @@ pub enum Body {
 }
 
 impl Body {
+    /// The network the request is for.
     pub fn network(&self) -> Network {
         match self {
             Body::Bitcoin(_) => Network::Bitcoin,
@@ -114,6 +126,7 @@ impl Body {
     }
 }
 
+/// A `sign` request, web → phone (PROTOCOL §5).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignRequest {
     pub id: String,
@@ -123,6 +136,7 @@ pub struct SignRequest {
 
 // ---------------------------------------------------------------- signed
 
+/// A signed transaction of a reply: its hash and the raw bytes to broadcast, both hex.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignedTx {
@@ -130,6 +144,8 @@ pub struct SignedTx {
     pub raw: String,
 }
 
+/// A `signed` reply, phone → web: the request's id, its transactions, and the accounts of
+/// this wallet it paid (PROTOCOL §6).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Signed {
@@ -142,6 +158,7 @@ pub struct Signed {
 
 // ---------------------------------------------------------------- messages
 
+/// An Airkeys message: one of the three of PROTOCOL §4–§6.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     Accounts(Vec<Account>),
@@ -190,7 +207,7 @@ impl Message {
                     bail!("An accounts message lists 1 to {MAX_ACCOUNTS} accounts.");
                 }
                 if let Some(k) = map.keys().next() {
-                    bail!("The message has an unknown field “{k}”.");
+                    bail!("The message has an unknown field “{}”.", shown(k));
                 }
                 Message::Accounts(accounts)
             }
@@ -208,11 +225,12 @@ impl Message {
                 Message::Sign(SignRequest { id, from, body })
             }
             "signed" => Message::Signed(rest(map)?),
-            other => bail!("“{other}” is not an Airkeys message type."),
+            other => bail!("“{}” is not an Airkeys message type.", shown(other)),
         };
         Ok(message)
     }
 
+    /// The message's `type`: "accounts", "sign" or "signed".
     pub fn type_name(&self) -> &'static str {
         match self {
             Message::Accounts(_) => "accounts",

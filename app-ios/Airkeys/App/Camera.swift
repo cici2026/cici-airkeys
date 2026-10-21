@@ -2,13 +2,17 @@ import AVFoundation
 import AirkeysCore
 import SwiftUI
 
-/// The back camera for reading the web app's code: 720p Y′CbCr frames to the core, and a
-/// preview to aim with. Late frames are dropped while a scan runs, so scanning paces itself.
+/// The back camera for reading codes (the web app's, or a SeedQR): 720p Y′CbCr frames to the
+/// core, and a preview to aim with. Late frames are dropped while a scan runs, so scanning paces
+/// itself.
 final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "airkeys.camera")
     private let onFrame: (CameraFrame) -> Void
     private let onError: (String) -> Void
+    /// Whether the core wants the camera; only `queue` touches it, so a stop that comes while
+    /// the permission prompt is up wins over the start waiting behind it.
+    private var wanted = false
 
     init(onFrame: @escaping (CameraFrame) -> Void, onError: @escaping (String) -> Void) {
         self.onFrame = onFrame
@@ -16,17 +20,21 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     func start() {
+        queue.async { self.wanted = true }
         AVCaptureDevice.requestAccess(for: .video) { granted in
             guard granted else {
-                self.onError("Airkeys needs the camera to read the web app's code. Allow it in Settings › Airkeys, then try again.")
+                self.onError("Airkeys needs the camera to read codes: the web app's, or a SeedQR. Allow it in Settings › Airkeys, then try again.")
                 return
             }
-            self.queue.async { self.configure() }
+            self.queue.async { if self.wanted { self.configure() } }
         }
     }
 
     func stop() {
-        queue.async { if self.session.isRunning { self.session.stopRunning() } }
+        queue.async {
+            self.wanted = false
+            if self.session.isRunning { self.session.stopRunning() }
+        }
     }
 
     private func configure() {

@@ -1,6 +1,7 @@
 // Shared helpers for the end-to-end checks: run the phone's signing path (the `sign`
 // example of airkeys-wallet) and talk JSON-RPC.
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -48,17 +49,26 @@ export async function receipt(url, hash) {
 	return null;
 }
 
-export function start(cmd, args, readyText) {
+/** Starts `cmd` and resolves once it prints `readyText`; fails if it exits or takes a minute. */
+export function start(cmd, args, readyText, ms = 60_000) {
 	return new Promise((resolve, reject) => {
 		const p = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 		let log = '';
+		const timer = setTimeout(() => {
+			p.kill();
+			reject(new Error(`${cmd} was not ready after ${ms / 1000} s: ${log}`));
+		}, ms);
 		const onData = (d) => {
 			log += d;
-			if (log.includes(readyText)) resolve(p);
+			if (log.includes(readyText)) {
+				clearTimeout(timer);
+				resolve(p);
+			}
 		};
 		p.stdout.on('data', onData);
 		p.stderr.on('data', onData);
-		p.on('exit', (code) => reject(new Error(`${cmd} exited ${code}: ${log}`)));
+		p.on('error', (e) => (clearTimeout(timer), reject(e)));
+		p.on('exit', (code) => (clearTimeout(timer), reject(new Error(`${cmd} exited ${code}: ${log}`))));
 	});
 }
 
@@ -73,7 +83,6 @@ export function done() {
 }
 
 // ------------------------------------------------------------ address encodings (tests only)
-import { createHash } from 'node:crypto';
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 function polymod(values) {

@@ -16,19 +16,23 @@ import app.airkeys.core.Plane
 import java.util.concurrent.Executors
 
 /**
- * The back camera for reading the web app's code: a preview to aim with, and 720p
- * Y′CbCr frames handed to the core, which decides everything else. When the core is still
+ * The back camera for reading codes (the web app's, or a SeedQR): a preview to aim with, and
+ * 720p Y′CbCr frames handed to the core, which decides everything else. When the core is still
  * busy with one frame, CameraX drops the next (keep-only-latest), so scanning paces itself.
  */
-class Camera(private val owner: LifecycleOwner, private val onFrame: (CameraFrame) -> Unit, private val onError: (String) -> Unit) {
+class ScanCamera(private val owner: LifecycleOwner, private val onFrame: (CameraFrame) -> Unit, private val onError: (String) -> Unit) {
     private val worker = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
-    val preview = Preview.Builder().build()
+    private var analysis: ImageAnalysis? = null
+    private val preview = Preview.Builder().build()
+    /** Set by [stop], on the main thread like the start below: a camera stopped before it was ready never starts. */
+    private var stopped = false
 
     fun start(view: PreviewView) {
         val context = view.context
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
+            if (stopped) return@addListener
             try {
                 val p = future.get()
                 provider = p
@@ -42,7 +46,13 @@ class Camera(private val owner: LifecycleOwner, private val onFrame: (CameraFram
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
-                analysis.setAnalyzer(worker) { image -> image.use { onFrame(it.toFrame()) } }
+                analysis.setAnalyzer(worker) { image ->
+                    val frame = image.use { it.toFrame() }
+                    onFrame(frame)
+                    // the core has its own copy; this one may hold a SeedQR
+                    for (plane in listOf(frame.y, frame.u, frame.v)) plane.data.fill(0)
+                }
+                this.analysis = analysis
                 p.unbindAll()
                 p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
             } catch (e: Exception) {
@@ -52,8 +62,11 @@ class Camera(private val owner: LifecycleOwner, private val onFrame: (CameraFram
     }
 
     fun stop() {
+        stopped = true
+        analysis?.clearAnalyzer()
         provider?.unbindAll()
         provider = null
+        worker.shutdown()
     }
 }
 

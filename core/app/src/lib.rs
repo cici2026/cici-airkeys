@@ -1,6 +1,7 @@
 //! The Airkeys phone app, shared by the iOS and Android shells.
 //!
-//! - [`app`] — the Crux state machine: every screen, every rule between screens, every string
+//! - [`app`] — the Crux state machine: every screen, every rule between screens, and what each
+//!   says about the wallet and a request
 //! - [`runtime`] — runs the core and its Lumen Code work, behind the uniffi interface
 //! - [`view`], [`ops`] — what crosses to the shells: the view model, requests, actions
 //!

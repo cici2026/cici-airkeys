@@ -6,42 +6,60 @@ camera on/off, keep the screen on, block screenshots (`FLAG_SECURE`), haptics.
 
 ```
 Airkeys/app/src/main/java/app/airkeys/
-  MainActivity.kt   the activity: radios, back button, debug test hook
-  Shell.kt          the core (one AirkeysCore), requests, radio watching
-  Camera.kt         CameraX analysis frames (YUV) → the core
-  ui/               Compose: Screens.kt (one function per screen), Parts.kt, Code.kt, Theme.kt
+  MainActivity.kt   the activity: back button, camera permission, debug test hook
+  Shell.kt          the core (one AirkeysCore per process) and what it asks of the window
+  Radios.kt         whether the phone is offline: switches, and what the radios are seen doing
+  Camera.kt         CameraX analysis frames (Y′CbCr) → the core
+  ui/               Compose: Screens.kt, Parts.kt (shared pieces), Code.kt (the animated code),
+                    Wheel.kt (the account wheel), Icons.kt, Theme.kt
 ```
 
-No `INTERNET` permission. Permissions: `CAMERA`, `ACCESS_WIFI_STATE` and `BLUETOOTH` (read
-the radios' state; `BLUETOOTH` only up to Android 11, where reading the adapter needs it).
-Minimum Android 8 (API 26).
+No `INTERNET` permission. Permissions: `CAMERA`; `ACCESS_WIFI_STATE` and
+`ACCESS_NETWORK_STATE` to see that Wi-Fi and every network are off; `BLUETOOTH` up to
+Android 11, where reading the adapter needs it. All are granted at install except the camera.
+Nothing is backed up or transferred to a new phone. Minimum Android 8 (API 26).
 
 ## Build
 
-Needs JDK 17+, the Android SDK with an NDK, Rust (see `core/rust-toolchain.toml`) and
-`cargo install cargo-ndk`.
+Needs JDK 17 and 21 (Gradle runs on 21 and fetches it if missing), the Android SDK with an NDK,
+Rust (see `core/rust-toolchain.toml`) and `cargo install cargo-ndk`.
 
 ```sh
 cd Airkeys
 ./gradlew :app:installDebug          # builds the core (core/scripts/build-android.sh), then the app
+./gradlew :app:lintDebug             # Android lint
 ./gradlew :app:assembleRelease       # app/build/outputs/apk/release/
 ```
 
-Gradle runs the Rust build before every build (task `cargoBuild`, up to date when nothing in
-`core/` changed); `-PairkeysSkipRust` skips it. `AIRKEYS_ABIS="arm64-v8a"` builds one ABI.
+Gradle runs the Rust build first (task `cargoBuild`, up to date when nothing in `core/`
+changed); `-PairkeysSkipRust` skips it. `AIRKEYS_ABIS="arm64-v8a"` builds one ABI. The core's
+libraries go to `app/build/rust/jniLibs` and its Kotlin bindings to `app/build/generated/uniffi`.
 
-The release build is signed with the debug key as a placeholder: configure your own
-`signingConfig` before distributing it.
+Release builds are signed with your key when `airkeysKeystore`, `airkeysKeystorePassword`,
+`airkeysKeyAlias` and `airkeysKeyPassword` are set in `~/.gradle/gradle.properties` (or as
+`AIRKEYS_KEYSTORE`, `AIRKEYS_KEYSTORE_PASSWORD`, `AIRKEYS_KEY_ALIAS`, `AIRKEYS_KEY_PASSWORD`);
+without them the APK is unsigned. R8 is off on purpose: the bytecode stays as written, easier to
+audit.
 
 ## Testing
 
-Debug builds accept a message as if scanned, so flows run without a camera:
+**Debug builds are for testing only**: they accept injected messages and allow screenshots of
+the phrase. Never open a wallet that holds funds in one.
+
+A debug build takes a message as if scanned, so flows run without a camera:
 
 ```sh
+# a request, for example from the web app's "What this code says", or core/e2e
 adb shell am start -n app.airkeys/.MainActivity --es airkeys.deliver "$(base64 < request.json | tr -d '\n')"
 ```
 
-The emulator's radios are on by default; turn on airplane mode and Wi-Fi/Bluetooth off
-(`adb shell cmd connectivity airplane-mode enable`, `adb shell svc wifi disable`) — the app shows
-nothing else until they are off. Debug builds allow screenshots; release builds block them while
-the phrase or passphrase is on screen.
+The app shows nothing but its offline screen until every radio is off. On an emulator:
+
+```sh
+adb shell cmd connectivity airplane-mode enable
+adb shell svc wifi disable
+adb shell cmd bluetooth_manager disable
+adb shell settings put global wifi_scan_always_enabled 0   # Wi-Fi scanning keeps the radio active
+```
+
+Release builds block screenshots while the phrase or passphrase is on screen.

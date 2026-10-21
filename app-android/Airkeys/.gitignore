@@ -8,5 +8,6 @@
 /captures
 .externalNativeBuild
 .cxx
-# built by core/scripts/build-android.sh
+# where core/scripts/build-android.sh wrote before it moved to app/build/rust
 /app/src/main/jniLibs
+.kotlin

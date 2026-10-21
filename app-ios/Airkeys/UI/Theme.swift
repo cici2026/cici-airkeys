@@ -9,7 +9,7 @@ enum Ink {
     static let stroke = Color(hex: 0x262B35)
     static let text = Color(hex: 0xECEEF2)
     static let dim = Color(hex: 0x9BA3B4)
-    static let faint = Color(hex: 0x687082)
+    static let faint = Color(hex: 0x7F879A)
     static let lamp = Color(hex: 0xF2B544)
     static let onLamp = Color(hex: 0x1C1505)
     static let safe = Color(hex: 0x3FD08F)
@@ -20,13 +20,6 @@ enum Ink {
     static let jsonText = Color(hex: 0x7FD6A4)
     static let jsonNumber = Color(hex: 0xF2B544)
     static let jsonLiteral = Color(hex: 0xC9A0FF)
-
-    static func network(_ kind: NetworkKind) -> Color {
-        switch kind {
-        case .bitcoin: Color(hex: 0xF7931A)
-        case .evm: Color(hex: 0x627EEA)
-        }
-    }
 }
 
 extension Color {

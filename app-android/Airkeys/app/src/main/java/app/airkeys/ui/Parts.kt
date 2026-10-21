@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +32,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
+import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMenuComponents
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
+import androidx.compose.ui.platform.TextToolbar
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -140,10 +150,6 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 @Composable
 fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null) =
     ButtonBase(text, Ink.raised, Ink.text, Ink.stroke, enabled, onClick, modifier, icon)
-
-@Composable
-fun DangerButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
-    ButtonBase(text, Ink.danger.copy(alpha = 0.14f), Ink.danger, Ink.danger.copy(alpha = 0.5f), true, onClick, modifier, null)
 
 private const val HOLD_MS = 900
 
@@ -270,7 +276,7 @@ fun Mark(size: Dp = 72.dp, color: Color = Ink.lamp) {
         val s = this.size.minDimension / 54f
         drawCircle(color, radius = 24f * s, style = Stroke(width = 4f * s))
         val p = Path().apply {
-            addOval(androidx.compose.ui.geometry.Rect(Offset(27f * s - 8f * s, 13.5f * s), Size(16f * s, 16f * s)))
+            addOval(Rect(Offset(27f * s - 8f * s, 13.5f * s), Size(16f * s, 16f * s)))
             moveTo(24.4f * s, 26f * s)
             lineTo(21.2f * s, 40f * s)
             lineTo(32.8f * s, 40f * s)
@@ -281,32 +287,12 @@ fun Mark(size: Dp = 72.dp, color: Color = Ink.lamp) {
     }
 }
 
-@Composable
-fun WordGrid(words: List<String>) {
-    val rows = (words.size + 1) / 2
-    Card(padding = 12.dp) {
-        for (r in 0 until rows) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (c in 0..1) {
-                    val i = c * rows + r
-                    Row(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(Ink.raised).padding(horizontal = 10.dp, vertical = 9.dp)) {
-                        if (i < words.size) {
-                            Text("${i + 1}".padStart(2, ' '), style = Type.mono.copy(fontSize = 13.sp, color = Ink.faint), modifier = Modifier.width(26.dp))
-                            Text(words[i], style = Type.mono.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 /** A range of a field's text to select; `stamp` makes the same range a new request. */
 data class Selection(val range: TextRange, val stamp: Long = System.nanoTime())
 
 /**
- * A text field for secrets and addresses: no autocorrect, no suggestions from the keyboard,
- * no learning — the keyboard must not remember a recovery phrase.
+ * A text field for secrets: no autocorrect, no suggestions, no learning — the keyboard must not
+ * remember a recovery phrase — and nothing to copy or cut out of it.
  */
 @Composable
 fun Field(
@@ -333,37 +319,86 @@ fun Field(
         if (range.max <= field.text.length) field = field.copy(selection = range)
         focus.requestFocus()
     }
-    BasicTextField(
-        value = field,
-        onValueChange = {
-            if (rewrite != null) {
-                // the core's text, at once: a second keystroke cannot land on stale text
-                val canonical = if (it.text != field.text) rewrite(it.text) else it.text
-                field = if (canonical == it.text) it else TextFieldValue(canonical, TextRange(canonical.length))
-            } else {
-                field = it
-                if (it.text != value) onChange(it.text)
-            }
-        },
-        singleLine = singleLine,
-        minLines = minLines,
-        textStyle = Type.mono.copy(fontSize = 17.sp, lineHeight = 26.sp),
-        cursorBrush = SolidColor(Ink.lamp),
-        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.None,
-            autoCorrectEnabled = false,
-            keyboardType = if (secret) KeyboardType.Password else KeyboardType.Password,
-        ),
-        modifier = modifier.focusRequester(focus).fillMaxWidth().clip(shape).background(Ink.surface)
-            .border(BorderStroke(1.dp, if (error) Ink.danger else Ink.stroke), shape).padding(16.dp),
-        decorationBox = { inner ->
-            Box {
-                if (value.isEmpty()) Text(placeholder, style = Type.mono.copy(fontSize = 17.sp, color = Ink.faint))
-                inner()
-            }
-        },
-    )
+    Private {
+        BasicTextField(
+            value = field,
+            onValueChange = {
+                if (rewrite != null) {
+                    // the core's text, at once: a second keystroke cannot land on stale text
+                    val canonical = if (it.text != field.text) rewrite(it.text) else it.text
+                    field = if (canonical == it.text) it else TextFieldValue(canonical, TextRange(canonical.length))
+                } else {
+                    field = it
+                    if (it.text != value) onChange(it.text)
+                }
+            },
+            singleLine = singleLine,
+            minLines = minLines,
+            textStyle = Type.mono.copy(fontSize = 17.sp, lineHeight = 26.sp),
+            cursorBrush = SolidColor(Ink.lamp),
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.None,
+                autoCorrectEnabled = false,
+                // visible or not, a password field to the keyboard: no suggestions, no learning
+                keyboardType = KeyboardType.Password,
+            ),
+            modifier = modifier.focusRequester(focus).fillMaxWidth().clip(shape).background(Ink.surface)
+                .border(BorderStroke(1.dp, if (error) Ink.danger else Ink.stroke), shape).padding(16.dp)
+                .filterTextContextMenuComponents { it.key != TextContextMenuKeys.CopyKey && it.key != TextContextMenuKeys.CutKey },
+            decorationBox = { inner ->
+                Box {
+                    if (value.isEmpty()) Text(placeholder, style = Type.mono.copy(fontSize = 17.sp, color = Ink.faint))
+                    inner()
+                }
+            },
+        )
+    }
+}
+
+/**
+ * Text input below it that keyboards must not learn from (Android's no-personalized-learning
+ * flag; a password type alone is only a hint), and whose menu offers no Copy or Cut.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun Private(content: @Composable () -> Unit) {
+    val platform = LocalTextToolbar.current
+    // the older text menu; the newer one is filtered on the field itself
+    val toolbar = remember(platform) {
+        object : TextToolbar by platform {
+            override fun showMenu(
+                rect: Rect,
+                onCopyRequested: (() -> Unit)?,
+                onPasteRequested: (() -> Unit)?,
+                onCutRequested: (() -> Unit)?,
+                onSelectAllRequested: (() -> Unit)?,
+            ) = platform.showMenu(rect, null, onPasteRequested, null, onSelectAllRequested)
+
+            override fun showMenu(
+                rect: Rect,
+                onCopyRequested: (() -> Unit)?,
+                onPasteRequested: (() -> Unit)?,
+                onCutRequested: (() -> Unit)?,
+                onSelectAllRequested: (() -> Unit)?,
+                onAutofillRequested: (() -> Unit)?,
+            ) = platform.showMenu(rect, null, onPasteRequested, null, onSelectAllRequested, null)
+        }
+    }
+    CompositionLocalProvider(LocalTextToolbar provides toolbar) {
+        InterceptPlatformTextInput(
+            interceptor = { request, next ->
+                next.startInputMethod(object : PlatformTextInputMethodRequest {
+                    override fun createInputConnection(outAttributes: EditorInfo): InputConnection {
+                        val connection = request.createInputConnection(outAttributes)
+                        outAttributes.imeOptions = outAttributes.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                        return connection
+                    }
+                })
+            },
+            content = content,
+        )
+    }
 }
 
 @Composable
@@ -395,4 +430,3 @@ fun CenteredText(text: String, style: TextStyle) = Text(text, style = style, tex
 @Composable
 fun Label(text: String) = Text(text.uppercase(), style = Type.label)
 
-val NoPadding = PaddingValues(0.dp)

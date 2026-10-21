@@ -8,7 +8,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import app.airkeys.core.NetworkKind
 
 /** The Airkeys palette: a dark bunker, one warm lamp. Same values on iOS and the web. */
 object Ink {
@@ -18,7 +17,7 @@ object Ink {
     val stroke = Color(0xFF262B35)
     val text = Color(0xFFECEEF2)
     val dim = Color(0xFF9BA3B4)
-    val faint = Color(0xFF687082)
+    val faint = Color(0xFF7F879A)
     val lamp = Color(0xFFF2B544)
     val onLamp = Color(0xFF1C1505)
     val safe = Color(0xFF3FD08F)
@@ -29,11 +28,6 @@ object Ink {
     val jsonText = Color(0xFF7FD6A4)
     val jsonNumber = Color(0xFFF2B544)
     val jsonLiteral = Color(0xFFC9A0FF)
-
-    fun network(kind: NetworkKind): Color = when (kind) {
-        NetworkKind.BITCOIN -> Color(0xFFF7931A)
-        NetworkKind.EVM -> Color(0xFF627EEA)
-    }
 }
 
 object Type {

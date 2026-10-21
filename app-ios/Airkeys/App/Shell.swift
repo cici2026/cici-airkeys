@@ -15,9 +15,13 @@ final class Shell {
     private(set) var view: ViewModel
     /// The core wants the camera on (the scan screen shows the preview then).
     private(set) var cameraOn = false
-    /// A recovery phrase is on screen.
+    /// A recovery phrase, a passphrase or the SeedQR camera is on screen.
     private(set) var privateScreen = false
     @ObservationIgnored private var brightness: CGFloat?
+    /// The core wants the screen bright (a code is shown); iOS keeps an app's brightness after
+    /// it leaves, so it is given back whenever the app is not in front.
+    @ObservationIgnored private var bright = false
+    @ObservationIgnored private var started = false
     @ObservationIgnored private lazy var radios = Radios { [weak self] wifi, bluetooth, cellular, network in
         self?.dispatch(.radios(wifi: wifi, bluetooth: bluetooth, cellular: cellular, network: network))
     }
@@ -34,6 +38,8 @@ final class Shell {
     }
 
     func start() {
+        guard !started else { return }
+        started = true
         #if DEBUG
         pendingDelivery = ProcessInfo.processInfo.environment["AIRKEYS_DELIVER"].flatMap { Data(base64Encoded: $0) }
         #endif
@@ -69,6 +75,22 @@ final class Shell {
         #endif
     }
 
+    /// The app came to the front or left it: the screen's own brightness while away.
+    func sceneActive(_ active: Bool) {
+        setBright(active && bright)
+    }
+
+    /// Full brightness helps a camera read the code on this screen.
+    private func setBright(_ on: Bool) {
+        if on, brightness == nil {
+            brightness = UIScreen.main.brightness
+            UIScreen.main.brightness = 1
+        } else if !on, let b = brightness {
+            UIScreen.main.brightness = b
+            brightness = nil
+        }
+    }
+
     private func perform(_ r: Request) {
         switch r {
         case let .camera(on):
@@ -76,14 +98,8 @@ final class Shell {
             if on { camera.start() } else { camera.stop() }
         case let .keepScreenOn(on):
             UIApplication.shared.isIdleTimerDisabled = on
-            // full brightness helps a camera read the code on this screen
-            if on, brightness == nil {
-                brightness = UIScreen.main.brightness
-                UIScreen.main.brightness = 1
-            } else if !on, let b = brightness {
-                UIScreen.main.brightness = b
-                brightness = nil
-            }
+            bright = on
+            setBright(on)
         case let .private(on):
             privateScreen = on
         case let .haptic(kind):
@@ -112,6 +128,8 @@ final class Radios: NSObject, CBCentralManagerDelegate {
     private var path: NWPath?
     private var bluetooth = RadioState.unknown
     private var timer: Timer?
+    /// The last report: the same one again changes nothing, so it is not sent.
+    private var last: [RadioState]?
 
     init(report: @escaping (RadioState, RadioState, RadioState, RadioState) -> Void) {
         self.report = report
@@ -146,12 +164,17 @@ final class Radios: NSObject, CBCentralManagerDelegate {
     /// cellular radio registered on a network, Bluetooth powered — and any network at all
     /// (Wi-Fi, cellular, a cable, a VPN), which must be none.
     private func send() {
-        guard let path else { return report(.unknown, bluetooth, .unknown, .unknown) }
+        guard let path else {
+            last = nil
+            return report(.unknown, bluetooth, .unknown, .unknown)
+        }
         let interfaces = path.availableInterfaces.map(\.type)
         let wifi: RadioState = interfaces.contains(.wifi) ? .on : .off
         let registered = !(telephony.serviceCurrentRadioAccessTechnology ?? [:]).isEmpty
         let cellular: RadioState = registered || interfaces.contains(.cellular) ? .on : .off
         let network: RadioState = path.status != .unsatisfied || !interfaces.isEmpty ? .on : .off
+        guard last != [wifi, bluetooth, cellular, network] else { return }
+        last = [wifi, bluetooth, cellular, network]
         report(wifi, bluetooth, cellular, network)
     }
 }
