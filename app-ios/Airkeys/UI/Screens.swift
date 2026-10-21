@@ -352,13 +352,13 @@ private struct AccountScreen: View {
 private struct CodeScreen: View {
     let title: String
     let caption: String
-    let message: [JsonPiece]
+    let message: [JsonLine]
     let next: (UInt32, UInt32) -> CodeFrame?
     let act: (Action) -> Void
     @State private var reading = false
 
     var body: some View {
-        Page(title: title, onBack: { act(.back) }, scroll: reading) {
+        Page(title: title, onBack: { act(.back) }, scroll: false) {
             Button(reading ? "Code" : "Message") { reading.toggle() }
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Ink.lamp)
@@ -366,10 +366,22 @@ private struct CodeScreen: View {
         } content: {
             if reading {
                 Text("What the code says").font(.akHeading).foregroundStyle(Ink.text)
-                Card {
-                    Text(highlighted(message)).font(.system(size: 12.5, design: .monospaced)).lineSpacing(3)
-                        .multilineTextAlignment(.leading).textSelection(.enabled)
+                // a line at a time, drawn as it scrolls into view: all 100 accounts are about a
+                // thousand lines, too many to lay out at once
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 3) {
+                        ForEach(Array(message.enumerated()), id: \.offset) { _, line in
+                            Text(highlighted(line.pieces))
+                                .padding(.leading, CGFloat(line.depth) * 15) // two characters a level
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .font(.system(size: 12.5, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(16)
                 }
+                .background(RoundedRectangle(cornerRadius: 16).fill(Ink.surface))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Ink.stroke, lineWidth: 1))
             } else {
                 CodeView(next: next)
                 Text(caption).font(.akDim).foregroundStyle(Ink.dim).lineLimit(2)
@@ -380,7 +392,7 @@ private struct CodeScreen: View {
     }
 }
 
-/// The message laid out by the core, coloured by kind.
+/// A line of the message, coloured by kind.
 private func highlighted(_ pieces: [JsonPiece]) -> AttributedString {
     pieces.reduce(into: AttributedString()) { text, p in
         var piece = AttributedString(p.text)

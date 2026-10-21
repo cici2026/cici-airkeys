@@ -50,7 +50,7 @@ pub enum Screen {
         title: String,
         caption: String,
         json: String,
-        message: Vec<JsonPiece>,
+        message: Vec<JsonLine>,
     },
     /// The camera, reading a request (Lumen Code) or a recovery phrase (QR code).
     Scan {
@@ -201,8 +201,15 @@ pub struct Detail {
     pub value: String,
 }
 
-/// A piece of a JSON message laid out to read: indented, its members in their order and every
-/// value exactly as written. Line breaks and indentation are in `Punctuation` pieces.
+/// A line of a JSON message laid out to read: its depth (a level of indentation each) and its
+/// pieces. Members stay in their order and every value is exactly as written; a long value that
+/// wraps continues at the line's indentation.
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct JsonLine {
+    pub depth: u32,
+    pub pieces: Vec<JsonPiece>,
+}
+
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct JsonPiece {
     pub text: String,
@@ -218,52 +225,61 @@ pub enum JsonKind {
     Number,
     /// `true`, `false`, `null`.
     Literal,
-    /// Braces, brackets, commas, colons, line breaks and indentation.
+    /// Braces, brackets, commas and colons.
     Punctuation,
 }
 
-/// `json` with two spaces of indentation a level, in pieces by kind. Values are not parsed, so
-/// nothing is reordered or rewritten: the text is the code's, laid out.
-pub fn lay_out_json(json: &str) -> Vec<JsonPiece> {
+/// `json` a member or an element a line, in pieces by kind. Values are not parsed, so nothing
+/// is reordered or rewritten: the text is the code's, laid out. Shells show the lines lazily —
+/// all 100 accounts are about a thousand.
+pub fn lay_out_json(json: &str) -> Vec<JsonLine> {
+    fn push(lines: &mut [JsonLine], text: &str, kind: JsonKind) {
+        let pieces = &mut lines.last_mut().expect("a line").pieces;
+        match pieces.last_mut() {
+            Some(last) if last.kind == kind => last.text.push_str(text),
+            _ => pieces.push(JsonPiece { text: text.to_string(), kind }),
+        }
+    }
+    fn line(lines: &mut Vec<JsonLine>, depth: u32) {
+        lines.push(JsonLine { depth, pieces: Vec::new() });
+    }
     let b = json.as_bytes();
-    let mut pieces: Vec<JsonPiece> = Vec::new();
-    let mut push = |text: &str, kind: JsonKind| match pieces.last_mut() {
-        Some(last) if last.kind == kind => last.text.push_str(text),
-        _ => pieces.push(JsonPiece { text: text.to_string(), kind }),
-    };
     let skip_space = |mut j: usize| {
         while j < b.len() && b[j].is_ascii_whitespace() {
             j += 1;
         }
         j
     };
-    let line = |depth: usize| format!("\n{}", "  ".repeat(depth));
+    let mut lines = vec![JsonLine { depth: 0, pieces: Vec::new() }];
     let (mut i, mut depth) = (0, 0);
     while i < b.len() {
         match b[i] {
             open @ (b'{' | b'[') => {
-                let close = if open == b'{' { '}' } else { ']' };
+                let close = if open == b'{' { b'}' } else { b']' };
                 let j = skip_space(i + 1);
-                if j < b.len() && b[j] as char == close {
-                    push(&format!("{}{close}", open as char), JsonKind::Punctuation);
+                if j < b.len() && b[j] == close {
+                    push(&mut lines, &format!("{}{}", open as char, close as char), JsonKind::Punctuation);
                     i = j + 1;
                 } else {
+                    push(&mut lines, &(open as char).to_string(), JsonKind::Punctuation);
                     depth += 1;
-                    push(&format!("{}{}", open as char, line(depth)), JsonKind::Punctuation);
+                    line(&mut lines, depth);
                     i += 1;
                 }
             }
             close @ (b'}' | b']') => {
                 depth = depth.saturating_sub(1);
-                push(&format!("{}{}", line(depth), close as char), JsonKind::Punctuation);
+                line(&mut lines, depth);
+                push(&mut lines, &(close as char).to_string(), JsonKind::Punctuation);
                 i += 1;
             }
             b',' => {
-                push(&format!(",{}", line(depth)), JsonKind::Punctuation);
+                push(&mut lines, ",", JsonKind::Punctuation);
+                line(&mut lines, depth);
                 i += 1;
             }
             b':' => {
-                push(": ", JsonKind::Punctuation);
+                push(&mut lines, ": ", JsonKind::Punctuation);
                 i += 1;
             }
             b'"' => {
@@ -275,7 +291,7 @@ pub fn lay_out_json(json: &str) -> Vec<JsonPiece> {
                 i = (i + 1).min(b.len());
                 let j = skip_space(i);
                 let kind = if j < b.len() && b[j] == b':' { JsonKind::Key } else { JsonKind::Text };
-                push(&json[start..i], kind);
+                push(&mut lines, &json[start..i], kind);
             }
             c if c.is_ascii_whitespace() => i += 1,
             c => {
@@ -285,11 +301,11 @@ pub fn lay_out_json(json: &str) -> Vec<JsonPiece> {
                     i += 1;
                 }
                 let kind = if c == b'-' || c.is_ascii_digit() { JsonKind::Number } else { JsonKind::Literal };
-                push(&json[start..i], kind);
+                push(&mut lines, &json[start..i], kind);
             }
         }
     }
-    pieces
+    lines
 }
 
 #[cfg(test)]
@@ -299,8 +315,14 @@ mod tests {
     #[test]
     fn json_is_laid_out_as_written() {
         let json = r#"{"airkeys":1,"txs":[{"to":{"index":1},"amount":"0.5 \"x\" ok","ok":true,"no":null}],"accounts":[],"n":-2.5e3}"#;
-        let pieces = lay_out_json(json);
-        let text: String = pieces.iter().map(|p| p.text.as_str()).collect();
+        let lines = lay_out_json(json);
+        let text = lines
+            .iter()
+            .map(|l| {
+                "  ".repeat(l.depth as usize) + &l.pieces.iter().map(|p| p.text.as_str()).collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let value = |s: &str| serde_json::from_str::<serde_json::Value>(s).unwrap();
         assert_eq!(value(&text), value(json), "the same message");
         assert_eq!(
@@ -314,7 +336,9 @@ mod tests {
             ),
             "{text}"
         );
-        assert!(text.contains("\"accounts\": [],"), "an empty list stays on its line");
+        assert!(text.contains("\n  \"accounts\": [],\n"), "an empty list stays on its line");
+        assert_eq!(lines.len(), text.lines().count());
+        let pieces: Vec<_> = lines.iter().flat_map(|l| &l.pieces).collect();
         let kind = |t: &str| pieces.iter().find(|p| p.text == t).map(|p| p.kind);
         assert_eq!(kind("\"airkeys\""), Some(JsonKind::Key));
         assert_eq!(kind(r#""0.5 \"x\" ok""#), Some(JsonKind::Text));

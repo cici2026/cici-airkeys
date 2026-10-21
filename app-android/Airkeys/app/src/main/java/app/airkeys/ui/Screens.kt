@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -112,7 +115,7 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
             is Screen.Code -> {
                 // the code fills the screen from the title to the button; its message is a tap away
                 var reading by remember(s.json) { mutableStateOf(false) }
-                Page(s.title, onBack = { act(Action.Back) }, scroll = reading, trailing = {
+                Page(s.title, onBack = { act(Action.Back) }, scroll = false, trailing = {
                     Text(
                         if (reading) "Code" else "Message",
                         style = Type.body.copy(color = Ink.lamp, fontWeight = FontWeight.SemiBold),
@@ -121,7 +124,22 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 }, actions = { PrimaryButton("Done", { act(Action.Done) }) }) {
                     if (reading) {
                         Text("What the code says", style = Type.heading)
-                        Card { Text(highlighted(s.message), style = Type.mono.copy(fontSize = 12.5.sp, lineHeight = 19.sp)) }
+                        // a line at a time, drawn as it scrolls into view: all 100 accounts are
+                        // about a thousand lines, too many to lay out at once
+                        val shape = RoundedCornerShape(16.dp)
+                        LazyColumn(
+                            Modifier.weight(1f).fillMaxWidth().clip(shape).background(Ink.surface).border(1.dp, Ink.stroke, shape),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            items(s.message) { line ->
+                                Text(
+                                    highlighted(line.pieces),
+                                    style = Type.mono.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
+                                    modifier = Modifier.padding(start = (line.depth.toInt() * 15).dp), // two characters a level
+                                )
+                            }
+                        }
                     } else {
                         CodeView(codeFrame, Modifier.weight(1f))
                         Text(s.caption, style = Type.dim, maxLines = 2)
@@ -441,7 +459,7 @@ private fun Check(on: Boolean) {
     ) { if (on) Icon(Icons.check, null, tint = Ink.onLamp, modifier = Modifier.size(18.dp)) }
 }
 
-/** The message laid out by the core, coloured by kind. */
+/** A line of the message, coloured by kind. */
 private fun highlighted(pieces: List<JsonPiece>) = buildAnnotatedString {
     for (p in pieces) {
         val color = when (p.kind) {

@@ -1,15 +1,27 @@
 import XCTest
 
-/// The app on a simulator, driven as a person would: import, save, show accounts, receive a
+/// The app on a simulator or a phone, driven as a person would: import, save, show accounts, receive a
 /// request (through the debug delivery hook — the simulator has no camera), review, hold to
-/// sign. Screenshots go to $SCREENSHOTS when set, so the codes on screen can be decoded.
+/// sign. Screenshots go to $SCREENSHOTS when set (on a phone, into the test result), so the
+/// codes on screen can be decoded.
 final class FlowTests: XCTestCase {
     static let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     static let request = #"{"airkeys":1,"type":"sign","id":"ios-1","network":"evm","chainId":1,"from":{"index":0,"address":"0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"100000000","token":{"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":"USDC","decimals":6},"nonce":0,"gas":65000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"1000000000"},{"to":{"index":1},"amount":"500000000000000000","nonce":1,"gas":21000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"30000000000"}]}"#
 
+    /// To $SCREENSHOTS on a simulator; on a phone, into the test result
+    /// (`xcrun xcresulttool export attachments`).
     private func shot(_ name: String) {
-        guard let dir = ProcessInfo.processInfo.environment["SCREENSHOTS"] else { return }
-        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+        let image = XCUIScreen.main.screenshot()
+        if let dir = ProcessInfo.processInfo.environment["SCREENSHOTS"] {
+            try? image.pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+            return
+        }
+        #if !targetEnvironment(simulator)
+            let attachment = XCTAttachment(screenshot: image)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        #endif
     }
 
     func testImportConnectReviewSign() throws {
@@ -57,6 +69,18 @@ final class FlowTests: XCTestCase {
             shot("code-accounts-\(n)")
             Thread.sleep(forTimeInterval: 0.15)
         }
+        // the message of all 100 accounts (about a thousand lines) opens at once
+        let opening = Date()
+        app.buttons["Message"].tap()
+        XCTAssertTrue(app.staticTexts["\"airkeys\": 1,"].waitForExistence(timeout: 5), "the JSON, a line at a time")
+        let opened = Date().timeIntervalSince(opening)
+        shot("i04-message")
+        let closing = Date()
+        app.buttons["Code"].tap()
+        XCTAssertTrue(app.buttons["Message"].waitForExistence(timeout: 5))
+        let closed = Date().timeIntervalSince(closing)
+        print("the message of 100 accounts opened in \(opened) s; back to the code in \(closed) s")
+        XCTAssertLessThan(opened, closed + 1, "the message opens about as fast as going back to the code")
         app.buttons["Done"].tap()
 
         app.buttons["Scan request"].tap()
