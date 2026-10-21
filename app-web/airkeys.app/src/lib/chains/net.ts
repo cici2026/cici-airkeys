@@ -5,6 +5,16 @@ import type { Account, SignRequest, Target } from '../protocol';
 
 const TIMEOUT_MS = 20_000;
 
+/** An absolute http: or https: URL: the only kind of address Airkeys asks or links to. */
+export function isHttpUrl(s: string): boolean {
+	try {
+		const { protocol } = new URL(s);
+		return protocol === 'https:' || protocol === 'http:';
+	} catch {
+		return false;
+	}
+}
+
 async function once(url: string, init: RequestInit): Promise<Response> {
 	const ctl = new AbortController();
 	const t = setTimeout(() => ctl.abort(), TIMEOUT_MS);
@@ -29,13 +39,13 @@ async function request(url: string, init: RequestInit): Promise<Response> {
 	}
 }
 
-export async function getJson<T = any>(url: string): Promise<T> {
+export async function getJson<T = unknown>(url: string): Promise<T> {
 	const r = await request(url, { headers: { accept: 'application/json' } });
 	if (!r.ok) throw new Error(`${new URL(url).host}: HTTP ${r.status}`);
 	return r.json();
 }
 
-export async function postJson<T = any>(url: string, body: unknown): Promise<T> {
+export async function postJson<T = unknown>(url: string, body: unknown): Promise<T> {
 	const r = await request(url, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -59,27 +69,56 @@ export async function postText(
 	return { ok: r.ok, status: r.status, text: await r.text() };
 }
 
+type RpcAnswer = { id?: unknown; result?: unknown; error?: { message?: string } };
+
 let rpcId = 0;
-export async function rpc<T = any>(
+export async function rpc<T = unknown>(
 	url: string,
 	method: string,
 	params: unknown[] = []
 ): Promise<T> {
-	const j = await postJson(url, { jsonrpc: '2.0', id: ++rpcId, method, params });
-	if (j.error) throw new Error(`${method}: ${j.error.message ?? JSON.stringify(j.error)}`);
-	return j.result;
+	const j = await postJson<RpcAnswer | null>(url, { jsonrpc: '2.0', id: ++rpcId, method, params });
+	if (j?.error) throw new Error(`${method}: ${j.error.message ?? JSON.stringify(j.error)}`);
+	return j?.result as T;
 }
 
-/** Several calls in one JSON-RPC batch; a failed call gives `null`. */
-export async function rpcBatch(url: string, calls: [string, unknown[]][]): Promise<any[]> {
+/** Several calls in one JSON-RPC batch, each answering a hex string; a failed call gives
+ * `null`. */
+export async function rpcBatch(
+	url: string,
+	calls: [string, unknown[]][]
+): Promise<(string | null)[]> {
 	if (!calls.length) return [];
 	const base = ++rpcId * 1000;
-	const out = await postJson<any[]>(
+	const out = await postJson<RpcAnswer[] | RpcAnswer | null>(
 		url,
 		calls.map(([method, params], i) => ({ jsonrpc: '2.0', id: base + i, method, params }))
 	);
-	const byId = new Map(out.map((r) => [r.id, r]));
-	return calls.map((_, i) => byId.get(base + i)?.result ?? null);
+	// an endpoint that does not take batches answers with one error, or anything else
+	if (!Array.isArray(out))
+		throw new Error(
+			`${new URL(url).host}: ${out?.error?.message ?? 'no answer to a batch of calls'}`
+		);
+	const byId = new Map(out.map((r) => [r?.id, r?.result]));
+	return calls.map((_, i) => {
+		const r = byId.get(base + i);
+		return typeof r === 'string' ? r : null;
+	});
+}
+
+/** `fn` over `items`, at most `n` at a time: public servers limit request rates. */
+export async function mapLimit<T, R>(
+	items: T[],
+	n: number,
+	fn: (item: T) => Promise<R>
+): Promise<R[]> {
+	const out = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		for (let k = next++; k < items.length; k = next++) out[k] = await fn(items[k]);
+	};
+	await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+	return out;
 }
 
 /** One coin or token an account holds on one chain. */

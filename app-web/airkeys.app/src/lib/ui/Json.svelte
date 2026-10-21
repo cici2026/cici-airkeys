@@ -26,7 +26,11 @@
 		padding: 14px 16px;
 		border-radius: 12px;
 		background: var(--surface);
-		font: 12.5px/1.55 ui-monospace, 'SF Mono', Menlo, monospace;
+		font:
+			12.5px/1.55 ui-monospace,
+			'SF Mono',
+			Menlo,
+			monospace;
 		white-space: pre-wrap;
 		word-break: break-all;
 	}
@@ -43,6 +47,6 @@
 		color: #c9a0ff;
 	}
 	.punctuation {
-		color: var(--faint, #687082);
+		color: var(--faint, #7f879a);
 	}
 </style>

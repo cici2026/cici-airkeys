@@ -6,9 +6,12 @@
 	// phone's camera, close to a screen, reads smaller cells than a webcam does; a large message
 	// keeps the smallest of them and takes more frames. Cells are a whole number of device
 	// pixels, never smoothed.
-	// @ts-expect-error — plain ES modules without types
-	import { Receiver, Sender, preparePayload } from 'lumen-code/src/core/transfer.js';
-	// @ts-expect-error — plain ES modules without types
+	import {
+		Receiver,
+		Sender,
+		preparePayload,
+		type PreparedPayload
+	} from 'lumen-code/src/core/transfer.js';
 	import { Renderer } from 'lumen-code/src/core/render.js';
 	import { onDestroy } from 'svelte';
 
@@ -31,8 +34,8 @@
 
 	/** Frames until a reader that catches every one has the message: the sender's own
 	 * schedule played into a receiver. */
-	async function framesToRead(prepared: unknown, X: number, Y: number): Promise<number> {
-		let tx: any;
+	async function framesToRead(prepared: PreparedPayload, X: number, Y: number): Promise<number> {
+		let tx: Sender;
 		try {
 			tx = new Sender(prepared, { mode: 1, ecc: 2, X, Y, tid: 1 });
 		} catch {
@@ -48,7 +51,7 @@
 
 	/** The grid (cells across, down) for an area: its shape, quiet zone included, and the
 	 * largest cells that read fast. The phone chooses the same way, for a webcam. */
-	async function grid(prepared: unknown, w: number, h: number): Promise<[number, number]> {
+	async function grid(prepared: PreparedPayload, w: number, h: number): Promise<[number, number]> {
 		const aspect = Math.min(Math.max(w, h) / Math.min(w, h), MAX_ASPECT);
 		const shape = (side: number): [number, number] => {
 			const along = Math.floor((side + 2 * QUIET) * aspect) - 2 * QUIET;
@@ -81,9 +84,12 @@
 		const tid = crypto.getRandomValues(new Uint16Array(1))[0];
 		const tx = new Sender(prepared, { mode: 1, ecc: 2, X, Y, tid });
 		const dpr = window.devicePixelRatio || 1;
-		const s = Math.max(2, Math.floor(Math.min((w * dpr) / (X + 2 * QUIET), (h * dpr) / (Y + 2 * QUIET))));
+		const s = Math.max(
+			2,
+			Math.floor(Math.min((w * dpr) / (X + 2 * QUIET), (h * dpr) / (Y + 2 * QUIET)))
+		);
 		const ctx = canvas.getContext('2d')!;
-		let r: any, img: ImageData;
+		let r: Renderer | undefined, img: ImageData;
 		const draw = () => {
 			const { cells: frame, layout } = tx.nextFrame();
 			if (!r) {

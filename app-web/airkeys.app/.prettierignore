@@ -1,9 +1,8 @@
 # Package Managers
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
 bun.lock
 bun.lockb
 
 # Miscellaneous
 /static/
+# made by the core (`bun run vectors`); CI compares it with the core's output as JSON
+/src/lib/vectors.json

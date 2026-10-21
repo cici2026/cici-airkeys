@@ -4,6 +4,16 @@
 	"version": "0.1.0",
 	"type": "module",
 	"description": "Airkeys on the web: the site, and the online side of the Airkeys cold wallet — balances, transfer requests, broadcasting.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mondaylabsltd/airkeys",
+		"directory": "app-web/airkeys.app"
+	},
+	"homepage": "https://github.com/mondaylabsltd/airkeys/tree/main/app-web/airkeys.app#readme",
+	"engines": {
+		"node": ">=22.12"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -11,7 +21,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run",
 		"extension": "node scripts/extension.mjs",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"vectors": "cd ../../core && cargo run -q --release -p airkeys-wallet --example vectors > ../app-web/airkeys.app/src/lib/vectors.json"
 	},
 	"dependencies": {
 		"@noble/hashes": "2.4.0",

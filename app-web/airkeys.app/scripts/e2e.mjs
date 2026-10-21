@@ -276,7 +276,9 @@ try {
 		return \`window \${innerWidth}×\${innerHeight}: the code \${Math.round(k.width)}×\${Math.round(k.height)} px at \${Math.round(k.left - b.left)},\${Math.round(k.top - b.top)} in a box \${Math.round(b.width)}×\${Math.round(b.height)} at \${Math.round(b.left)}\`;
 	})()`);
 	console.log(`  ..  ${geometry}`);
-	await js(`(() => { const d = document.querySelector('details'); d.open = true; d.scrollIntoView(); return true })()`);
+	await js(
+		`(() => { const d = document.querySelector('details'); d.open = true; d.scrollIntoView(); return true })()`
+	);
 	await sleep(200);
 	await shot('w6-message');
 	check(

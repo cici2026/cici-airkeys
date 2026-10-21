@@ -3,7 +3,7 @@
 // chain without typing its details; nothing from it is trusted blindly — the endpoint must
 // answer with the chain id asked for, and token decimals are read from the chain itself.
 import type { Chain, Token } from './registry';
-import { getJson, rpc } from './chains/net';
+import { getJson, isHttpUrl, rpc } from './chains/net';
 import { parseEvm } from './addresses';
 
 export const CHAIN_DATA = 'https://ethereum-data.getvela.app';
@@ -68,7 +68,7 @@ export function searchChains(list: ChainHit[], query: string, max = 8): ChainHit
 		.map(([, c]) => c);
 }
 
-interface Record {
+interface ChainRecord {
 	name: string;
 	title?: string;
 	chainId: number;
@@ -86,27 +86,45 @@ export interface ChainOffer {
 	tokens: Token[];
 }
 
+/** How long an endpoint has to answer for its chain id. */
+const PROBE_MS = 5000;
+
 /** One chain's details, with an endpoint that answered for this chain id. */
 export async function chainDetails(chainId: number): Promise<ChainOffer> {
-	const r = await getJson<Record>(`${CHAIN_DATA}/chains/eip155-${chainId}.json`);
+	const r = await getJson<ChainRecord>(`${CHAIN_DATA}/chains/eip155-${chainId}.json`);
 	if (r.chainId !== chainId) throw new Error('The chain data does not match this chain id.');
-	// plain HTTPS endpoints without API keys, tried in order until one serves this chain
-	const candidates = r.rpc.filter((u) => u.startsWith('https://') && !u.includes('${')).slice(0, 6);
-	let endpoint = '';
-	for (const url of candidates) {
-		try {
-			if (Number(BigInt(await rpc<string>(url, 'eth_chainId'))) === chainId) {
-				endpoint = url;
-				break;
-			}
-		} catch {
-			/* the next one */
-		}
+	if (
+		typeof r.name !== 'string' ||
+		typeof r.nativeCurrency?.symbol !== 'string' ||
+		!Number.isInteger(r.nativeCurrency.decimals) ||
+		!Array.isArray(r.rpc)
+	)
+		throw new Error('The chain data is not valid.');
+	// plain HTTPS endpoints without API keys, all asked at once: the first to serve this chain
+	const candidates = r.rpc
+		.filter((u) => typeof u === 'string' && u.startsWith('https://') && !u.includes('${'))
+		.filter(isHttpUrl)
+		.slice(0, 6);
+	let endpoint: string;
+	try {
+		endpoint = await Promise.any(
+			candidates.map(async (url) => {
+				const id = await Promise.race([
+					rpc<string>(url, 'eth_chainId'),
+					new Promise<never>((_, no) => setTimeout(() => no(new Error('no answer')), PROBE_MS))
+				]);
+				if (Number(BigInt(id)) !== chainId) throw new Error('another chain');
+				return url;
+			})
+		);
+	} catch {
+		throw new Error('None of its public endpoints answered. Enter one by hand.');
 	}
-	if (!endpoint) throw new Error('None of its public endpoints answered. Enter one by hand.');
-	const explorer = (
+	const site = (
 		r.explorers?.find((e) => e.standard === 'EIP3091') ?? r.explorers?.[0]
-	)?.url.replace(/\/$/, '');
+	)?.url?.replace(/\/$/, '');
+	// a link only to a web address
+	const explorer = site && isHttpUrl(site) ? site : '';
 	const chain: Chain = {
 		chainId,
 		name: r.name,

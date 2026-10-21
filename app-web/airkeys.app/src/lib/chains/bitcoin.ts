@@ -3,13 +3,14 @@
 //
 // A spend reveals the public key of the account it spends from, so a request spends every coin
 // of the account: what is not paid goes to a fresh account as change, never back.
-import { BTC_DUST, BTC_OUTPUT_BYTES, parseBitcoin } from '../addresses';
-import { signRequest } from '../protocol';
+import { BTC_DUST, BTC_OUTPUT_BYTES, parseBitcoin, paysSameKey } from '../addresses';
+import { encode, MAX_MESSAGE, signRequest } from '../protocol';
 import { formatUnits } from '../units';
 import type { Chain } from '../registry';
 import {
 	getJson,
 	getText,
+	mapLimit,
 	own,
 	postText,
 	type Asset,
@@ -24,6 +25,11 @@ interface Stats {
 	spent_txo_sum: number;
 	spent_txo_count: number;
 }
+
+/** Requests in flight at once to an Esplora API: public servers limit request rates. */
+export const PARALLEL = 3;
+/** The most coins one request spends (PROTOCOL §5.1). */
+const MAX_INPUTS = 200;
 
 /** APIs that failed recently, until when: the other one is asked first meanwhile. */
 const down = new Map<string, number>();
@@ -123,10 +129,12 @@ export function vsize(inputs: number, outputs: number[]): number {
 export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
 	const recipient = parseBitcoin(i.to);
-	if (i.to.toLowerCase() === i.from.address)
+	// the phone refuses it too, in any spelling of the same key
+	if (paysSameKey(i.from.address, i.to))
 		throw new Error(
 			'Send to another address: coins sent back to this one would sit behind a revealed key.'
 		);
+	const coins = (amount: bigint) => `${formatUnits(amount, chain.decimals)} ${chain.symbol}`;
 	const [utxos, rates] = await Promise.all([
 		esplora(chain, (api) =>
 			getJson<{ txid: string; vout: number; value: number }[]>(
@@ -136,14 +144,22 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		feeRates(chain)
 	]);
 	if (!utxos.length) throw new Error('This account holds no coins.');
-	const inputs = await Promise.all(
-		utxos.map(async (u) => ({
-			txid: u.txid,
-			vout: u.vout,
-			amount: String(u.value),
-			prevTx: (await esplora(chain, (api) => getText(`${api}/tx/${u.txid}/hex`))).trim()
-		}))
+	if (utxos.length > MAX_INPUTS)
+		throw new Error(
+			`This account holds ${utxos.length} coins, and a request spends every coin of the account: the phone signs at most ${MAX_INPUTS} at once.`
+		);
+	// each previous transaction once, a few at a time
+	const txids = [...new Set(utxos.map((u) => u.txid))];
+	const hexes = await mapLimit(txids, PARALLEL, async (txid) =>
+		(await esplora(chain, (api) => getText(`${api}/tx/${txid}/hex`))).trim()
 	);
+	const prev = new Map(txids.map((txid, k) => [txid, hexes[k]]));
+	const inputs = utxos.map((u) => ({
+		txid: u.txid,
+		vout: u.vout,
+		amount: String(u.value),
+		prevTx: prev.get(u.txid)!
+	}));
 	const total = utxos.reduce((s, u) => s + BigInt(u.value), 0n);
 	const rate = BigInt(rates[i.speed]);
 	const feeFor = (outputs: number[]) => rate * BigInt(vsize(inputs.length, outputs));
@@ -162,7 +178,7 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 			rest = 0n;
 			if (total - amount < feeFor([pay]))
 				throw new Error(
-					`The account holds ${formatUnits(total, 8)} BTC: too little for this amount and its fee at ${rate} sat/vB.`
+					`The account holds ${coins(total)}: too little for this amount and its fee at ${rate} sat/vB.`
 				);
 		}
 	}
@@ -172,22 +188,25 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 			`The amount is below the network's dust limit of ${BTC_DUST[recipient.kind]} sat.`
 		);
 	if (fee <= 0n || amount + fee > total)
-		throw new Error(
-			`The account holds ${formatUnits(total, 8)} BTC: too little for this amount and its fee.`
-		);
+		throw new Error(`The account holds ${coins(total)}: too little for this amount and its fee.`);
 	if (rest > 0n && i.moveRest === null) throw new Error('The change needs an account to go to.');
 
 	const outputs: Record<string, unknown>[] = [{ to: { address: i.to }, amount: amount.toString() }];
-	const summary = [`Send ${formatUnits(amount, 8)} BTC to ${i.to}`];
+	const summary = [`Send ${coins(amount)} to ${i.to}`];
 	if (rest > 0n) {
 		outputs.push({ to: own(i.moveRest!), amount: rest.toString() });
-		summary.push(`Move the change, ${formatUnits(rest, 8)} BTC, to your account #${i.moveRest}`);
+		summary.push(`Move the change, ${coins(rest)}, to your account #${i.moveRest}`);
 	}
 	summary.push(
-		`Spend all ${inputs.length} coin${inputs.length > 1 ? 's' : ''} of this account (${formatUnits(total, 8)} BTC)`
+		`Spend all ${inputs.length} coin${inputs.length > 1 ? 's' : ''} of this account (${coins(total)})`
 	);
 	const request = signRequest('bitcoin', i.from, { inputs, outputs });
-	return { request, summary, fee: `${formatUnits(fee, 8)} BTC (${rate} sat/vB)` };
+	// the previous transactions travel whole, and the phone reads at most 1 MiB
+	if (encode(request).length > MAX_MESSAGE)
+		throw new Error(
+			"The coins' previous transactions are too large for one request: it would be over 1 MiB, the most the phone reads."
+		);
+	return { request, summary, fee: `${coins(fee)} (${rate} sat/vB)` };
 }
 
 export async function broadcast(chain: Chain, raws: string[]): Promise<Broadcast[]> {

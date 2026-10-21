@@ -1,9 +1,9 @@
 <script lang="ts">
-	// Endpoints and explorers per chain, and EVM chains added by hand. Everything stays in this
-	// browser. Self-hosters can point every chain at their own nodes.
-	import { registry, type Chain } from '$lib/registry';
+	// Endpoints per chain, and EVM chains added by hand. Everything stays in this browser.
+	// Self-hosters can point every chain at their own nodes.
+	import { registry, type Chain, type Token } from '$lib/registry';
 	import { save, store } from '$lib/state.svelte';
-	import { rpc } from '$lib/chains/net';
+	import { isHttpUrl, rpc } from '$lib/chains/net';
 	import {
 		CHAIN_DATA,
 		chainDetails,
@@ -12,7 +12,13 @@
 		type ChainHit,
 		type ChainOffer
 	} from '$lib/chainData';
-	import type { Token } from '$lib/registry';
+
+	let problem = $state('');
+	let added = $state('');
+	/** Endpoint rows open for editing, and what is wrong with what was typed in each. */
+	let editing = $state<Record<string, boolean>>({});
+	let wrong = $state<Record<string, string>>({});
+	let custom = $state({ name: '', chainId: '', symbol: '', rpc: '', explorer: '' });
 
 	// adding a chain: search the chains of ethereum-data.getvela.app, or enter one by hand
 	let query = $state('');
@@ -75,13 +81,24 @@
 		{ title: 'Mainnet', rows: rows.filter((r) => !r.chain.testnet) },
 		{ title: 'Testnet', rows: rows.filter((r) => r.chain.testnet) }
 	]);
-	let editing = $state<Record<string, boolean>>({});
-	let custom = $state({ name: '', chainId: '', symbol: '', rpc: '', explorer: '' });
-	let problem = $state('');
-	let added = $state('');
+
+	/** A web page's host, or nothing: the data comes from a third party. */
+	const host = (url: string) => {
+		try {
+			return new URL(url).host;
+		} catch {
+			return '';
+		}
+	};
 
 	function set(key: string, value: string) {
-		if (value.trim()) store.settings.rpc[key] = value.trim();
+		const url = value.trim();
+		if (url && !isHttpUrl(url)) {
+			wrong[key] = 'Enter a web address: http://… or https://…';
+			return;
+		}
+		delete wrong[key];
+		if (url) store.settings.rpc[key] = url;
 		else delete store.settings.rpc[key];
 		save();
 	}
@@ -93,16 +110,21 @@
 			if (!Number.isInteger(id) || id <= 0) throw new Error('Enter the chain id.');
 			if ([...registry.evm, ...store.settings.chains].some((c) => c.chainId === id))
 				throw new Error('This chain is already listed.');
-			const answered = Number(BigInt(await rpc<string>(custom.rpc, 'eth_chainId')));
+			const endpoint = custom.rpc.trim();
+			if (!isHttpUrl(endpoint))
+				throw new Error('Enter the RPC URL, a web address: http://… or https://…');
+			const ex = custom.explorer.trim().replace(/\/$/, '');
+			if (ex && !isHttpUrl(ex))
+				throw new Error('Enter the explorer as a web address (https://…), or leave it empty.');
+			const answered = Number(BigInt(await rpc<string>(endpoint, 'eth_chainId')));
 			if (answered !== id) throw new Error(`That endpoint serves chain ${answered}, not ${id}.`);
-			const ex = custom.explorer.replace(/\/$/, '');
 			store.settings.chains.push({
 				chainId: id,
 				name: custom.name || `Chain ${id}`,
 				symbol: custom.symbol || 'ETH',
 				decimals: 18,
-				rpc: custom.rpc,
-				explorer: { tx: `${ex}/tx/{}`, address: `${ex}/address/{}` },
+				rpc: endpoint,
+				explorer: ex ? { tx: `${ex}/tx/{}`, address: `${ex}/address/{}` } : { tx: '', address: '' },
 				tokens: []
 			});
 			save();
@@ -114,8 +136,11 @@
 	}
 
 	function removeChain(c: Chain) {
+		const key = `evm:${c.chainId}`;
 		store.settings.chains = store.settings.chains.filter((x) => x.chainId !== c.chainId);
-		delete store.settings.rpc[`evm:${c.chainId}`];
+		delete store.settings.rpc[key];
+		delete editing[key];
+		delete wrong[key];
 		save();
 	}
 </script>
@@ -129,10 +154,13 @@
 			bind:value={query}
 			onfocus={startSearch}
 			placeholder="Search a network — name, symbol or chain id"
+			aria-label="Search a network"
 			spellcheck="false"
 			autocomplete="off"
 		/>
-		{#if searching && searching !== 'loading'}<div class="notice warn small">{searching}</div>{/if}
+		{#if searching && searching !== 'loading'}<div class="notice warn small" role="status">
+				{searching}
+			</div>{/if}
 		{#if query && hits.length}
 			<div class="hits">
 				{#each hits as h (h.chainId)}
@@ -148,7 +176,7 @@
 		{:else if query && all.length}
 			<p class="small">No network matches “{query}”.</p>
 		{/if}
-		{#if loadingOffer}<p class="small">Checking its endpoints…</p>{/if}
+		{#if loadingOffer}<p class="small" role="status">Checking its endpoints…</p>{/if}
 		{#if offer}
 			<div class="offer stack">
 				<div class="row">
@@ -160,8 +188,8 @@
 				<div class="small">
 					Chain {offer.chain.chainId} · {offer.chain.symbol} · endpoint
 					<span class="mono">{offer.chain.rpc}</span>
-					(it answered for this chain){offer.chain.explorer.tx
-						? ` · explorer ${new URL(offer.chain.explorer.tx.replace('{}', '')).host}`
+					(it answered for this chain){host(offer.chain.explorer.tx)
+						? ` · explorer ${host(offer.chain.explorer.tx)}`
 						: ''}
 				</div>
 				{#if offer.tokens.length}
@@ -180,22 +208,32 @@
 			Networks come from <a href={CHAIN_DATA} target="_blank" rel="noreferrer"
 				>{new URL(CHAIN_DATA).host}</a
 			>.
-			<button class="ghost small" onclick={() => (byHand = !byHand)}
+			<button class="ghost small" aria-expanded={byHand} onclick={() => (byHand = !byHand)}
 				>{byHand ? 'Hide' : 'Enter one by hand'}</button
 			>
 		</p>
 		{#if byHand}
 			<div class="grid">
-				<input bind:value={custom.name} placeholder="Name" />
-				<input bind:value={custom.chainId} placeholder="Chain id" inputmode="numeric" />
-				<input bind:value={custom.symbol} placeholder="Coin symbol" />
-				<input bind:value={custom.rpc} placeholder="RPC URL" />
-				<input class="wide" bind:value={custom.explorer} placeholder="Explorer URL (https://…)" />
+				<input bind:value={custom.name} placeholder="Name" aria-label="Name" />
+				<input
+					bind:value={custom.chainId}
+					placeholder="Chain id"
+					aria-label="Chain id"
+					inputmode="numeric"
+				/>
+				<input bind:value={custom.symbol} placeholder="Coin symbol" aria-label="Coin symbol" />
+				<input bind:value={custom.rpc} placeholder="RPC URL" aria-label="RPC URL" />
+				<input
+					class="wide"
+					bind:value={custom.explorer}
+					placeholder="Explorer URL (https://…)"
+					aria-label="Explorer URL"
+				/>
 			</div>
 			<div><button class="primary" onclick={addChain}>Add chain</button></div>
 		{/if}
-		{#if problem}<div class="notice danger">{problem}</div>{/if}
-		{#if added}<div class="notice info">{added}</div>{/if}
+		{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
+		{#if added}<div class="notice info" role="status">{added}</div>{/if}
 		{#each groups as g (g.title)}
 			{#if g.rows.length}
 				<div class="group">{g.title}</div>
@@ -204,8 +242,10 @@
 						<div class="row">
 							<b class="grow">{r.name}</b>
 							{#if store.settings.rpc[r.key]}<span class="pill dim">Own endpoint</span>{/if}
-							<button class="ghost small" onclick={() => (editing[r.key] = !editing[r.key])}
-								>Endpoint</button
+							<button
+								class="ghost small"
+								aria-expanded={!!editing[r.key]}
+								onclick={() => (editing[r.key] = !editing[r.key])}>Endpoint</button
 							>
 							{#if store.settings.chains.includes(r.chain)}<button
 									class="ghost small"
@@ -216,9 +256,13 @@
 							<input
 								value={store.settings.rpc[r.key] ?? ''}
 								placeholder={`${r.kind}: ${r.chain.rpc}`}
+								aria-label={`${r.name} endpoint (${r.kind})`}
 								onchange={(e) => set(r.key, e.currentTarget.value)}
 								spellcheck="false"
 							/>
+							{#if wrong[r.key]}<div class="notice danger small" role="alert">
+									{wrong[r.key]}
+								</div>{/if}
 						{/if}
 					</div>
 				{/each}

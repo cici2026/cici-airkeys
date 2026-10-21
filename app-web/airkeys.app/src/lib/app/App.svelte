@@ -33,11 +33,19 @@
 <svelte:head><title>Airkeys</title></svelte:head>
 
 <header>
-	<a class="brand" href={home}><Mark size={30} /><b>Airkeys</b></a>
+	<!-- the name is hidden on a phone: the link keeps it -->
+	<a class="brand" href={home} aria-label="Airkeys"><Mark size={30} /><b>Airkeys</b></a>
 	<div class="mode" role="group" aria-label="Networks shown">
-		<button class:on={!store.settings.testnet} onclick={() => mode(false)}>Mainnet</button>
-		<button class:on={!!store.settings.testnet} class="test" onclick={() => mode(true)}
-			>Testnet</button
+		<button
+			class:on={!store.settings.testnet}
+			aria-pressed={!store.settings.testnet}
+			onclick={() => mode(false)}>Mainnet</button
+		>
+		<button
+			class:on={!!store.settings.testnet}
+			aria-pressed={!!store.settings.testnet}
+			class="test"
+			onclick={() => mode(true)}>Testnet</button
 		>
 	</div>
 	<nav>
@@ -62,7 +70,10 @@
 {/if}
 
 <main>
-	{#if toast}<div class="notice info toast">{toast}</div>{/if}
+	<!-- a live region from the start, so a reader announces what appears in it -->
+	<div role="status">
+		{#if toast}<div class="notice info toast">{toast}</div>{/if}
+	</div>
 	{#if view.name === 'wallet'}
 		<Wallet
 			open={(account) => go({ name: 'account', account })}

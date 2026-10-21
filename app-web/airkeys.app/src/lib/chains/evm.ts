@@ -89,10 +89,6 @@ export async function nonces(
 	return out;
 }
 
-export async function balances(chain: Chain, address: string): Promise<Asset[]> {
-	return (await scan(chain, [address])).get(address)!.assets;
-}
-
 type Fee = { maxFeePerGas: string; maxPriorityFeePerGas: string } | { gasPrice: string };
 
 async function pricing(chain: Chain, speed: 0 | 1 | 2): Promise<{ fee: Fee; price: bigint }> {
@@ -123,7 +119,6 @@ async function pricing(chain: Chain, speed: 0 | 1 | 2): Promise<{ fee: Fee; pric
 const transferData = (to: string, amount: bigint) =>
 	'0xa9059cbb' + pad(to) + amount.toString(16).padStart(64, '0');
 
-/** A gas limit with room: the estimate plus a fifth, or plain 21000 for a coin to a wallet. */
 /** OP-stack chains (Base, OP Mainnet) charge every transaction a layer-1 data fee besides its
  * gas, taken from the same balance. Their fee oracle: */
 const L1_ORACLE = '0x420000000000000000000000000000000000000F';
@@ -133,7 +128,8 @@ const L1_ORACLE = '0x420000000000000000000000000000000000000F';
 async function l1Fee(chain: Chain): Promise<bigint> {
 	const code = await rpc<string>(chain.rpc, 'eth_getCode', [L1_ORACLE, 'latest']);
 	if (!code || code === '0x') return 0n;
-	// getL1FeeUpperBound(uint256 unsignedTxSize): a token transfer is about 110 bytes
+	// getL1FeeUpperBound(uint256 unsignedTxSize): a token transfer is about 110 bytes; 200
+	// leaves room
 	const bound = await rpc<string>(chain.rpc, 'eth_call', [
 		{ to: L1_ORACLE, data: '0xf1c7a58b' + (200).toString(16).padStart(64, '0') },
 		'latest'
@@ -141,6 +137,7 @@ async function l1Fee(chain: Chain): Promise<bigint> {
 	return (BigInt(bound) * 3n) / 2n;
 }
 
+/** A gas limit with room: the estimate plus a fifth, or plain 21000 for a coin to a wallet. */
 async function gasFor(
 	chain: Chain,
 	from: string,
@@ -164,6 +161,11 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
 	const from = i.from.address;
 	const to = parseEvm(i.to);
+	// the phone refuses it too: coins sent back would sit behind the key this send reveals
+	if (to.toLowerCase() === from.toLowerCase())
+		throw new Error(
+			'Send to another address: coins sent back to this one would sit behind a revealed key.'
+		);
 	// a stand-in recipient for estimates of transfers to an account named by number: a random
 	// address, so a new holder — the estimate covers the costlier first deposit (a well-known
 	// address may already hold the token, and would under-estimate by ~17,000 gas)

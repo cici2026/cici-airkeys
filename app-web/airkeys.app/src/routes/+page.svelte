@@ -170,8 +170,8 @@
 			<div class="card stack">
 				<h3>This web app</h3>
 				<p class="dim">
-					A static site: host the files anywhere, open them from disk, or load them as a browser
-					extension.
+					A static site: serve the files from any static host over HTTPS (the camera needs a secure
+					page; localhost works), or load them as a browser extension.
 				</p>
 				<a href="app/">Open it →</a>
 			</div>

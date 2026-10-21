@@ -2,7 +2,7 @@
 	// A transfer, end to end: the form, the request shown to the phone, the phone's signed reply,
 	// and broadcasting. The phone checks everything again and shows it before it signs.
 	import { broadcast, prepare, type Asset, type Broadcast, type Prepared } from '$lib/chains';
-	import { encode, parseMessage, type Account, type Signed } from '$lib/protocol';
+	import { encode, isIndex, parseMessage, type Account, type Signed } from '$lib/protocol';
 	import { explorerLink, NETWORK_NAMES } from '$lib/registry';
 	import { addAccounts, store } from '$lib/state.svelte';
 	import { ensure, freshIndex, holdingOf, refresh } from '$lib/holdings.svelte';
@@ -11,7 +11,7 @@
 	import CodeCanvas from '$lib/lumen/CodeCanvas.svelte';
 	import Json from '$lib/ui/Json.svelte';
 	import CameraScan from '$lib/lumen/CameraScan.svelte';
-	import { untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
 
 	let { account, asset, back }: { account: Account; asset: Asset; back: () => void } = $props();
 
@@ -36,7 +36,11 @@
 	let problem = $state('');
 	let busy = $state(false);
 	let prepared = $state<Prepared | null>(null);
+	// the phone's reply, kept until every transaction in it is sent
+	let signed = $state.raw<Signed | null>(null);
 	let results = $state<Broadcast[]>([]);
+	let later: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(later));
 
 	const holdings = $derived(
 		(holdingOf(account)?.assets ?? []).filter(
@@ -55,6 +59,8 @@
 				throw new Error(
 					'Airkeys has not seen an unused account to move the rest to. On the phone, Connect → All 100 accounts, then scan it here.'
 				);
+			if ((moveRest || account.network === 'bitcoin') && !isIndex(fresh))
+				throw new Error('An account number is a whole number from 0 to 2147483647.');
 			if (moveRest && fresh === account.index)
 				throw new Error('Move the rest to another account number.');
 			busy = true;
@@ -75,9 +81,8 @@
 		}
 	}
 
-	async function replied(bytes: Uint8Array) {
+	function replied(bytes: Uint8Array) {
 		problem = '';
-		let signed: Signed;
 		try {
 			const m = parseMessage(bytes);
 			if (m.type !== 'signed') throw new Error('This code holds accounts, not a signed reply.');
@@ -88,17 +93,38 @@
 			problem = (e as Error).message;
 			return;
 		}
-		busy = true;
-		step = 'done';
-		results = await broadcast(
-			account.network,
-			asset.chain,
-			signed.txs.map((t) => t.raw)
-		);
-		// a reply can name accounts the request used by number: now the web app knows them
+		// a reply can name accounts the request used by number: now the web app knows them,
+		// whatever the broadcast does
 		addAccounts(signed.accounts);
-		busy = false;
-		setTimeout(() => refresh([account]), 4000);
+		results = [];
+		step = 'done';
+		publish();
+	}
+
+	/** Broadcasts what is not sent yet: every transaction, then on "Broadcast again" the ones
+	 * that failed. The same signed transaction sent twice is harmless. */
+	async function publish() {
+		if (!signed) return;
+		const txs = signed.txs;
+		const todo = txs.map((_, k) => k).filter((k) => !results[k]?.ok);
+		problem = '';
+		busy = true;
+		try {
+			const out = await broadcast(
+				account.network,
+				asset.chain,
+				todo.map((k) => txs[k].raw)
+			);
+			const next = [...results];
+			todo.forEach((k, j) => (next[k] = out[j]));
+			results = next;
+			clearTimeout(later);
+			later = setTimeout(() => refresh([account]), 4000);
+		} catch (e) {
+			problem = `Signed, but not broadcast: ${(e as Error).message}`;
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
@@ -130,17 +156,20 @@
 						inputmode="decimal"
 						disabled={max}
 					/>
-					<button class:primary={max} onclick={() => (max = !max)}>Max</button>
+					<button class:primary={max} aria-pressed={max} onclick={() => (max = !max)}>Max</button>
 				</div>
 				<span class="small"
 					>Available: {formatUnits(asset.amount, asset.decimals)} {asset.symbol}</span
 				>
 			</label>
 			<div class="stack tight">
-				<span class="label">Network fee</span>
-				<div class="row speeds">
+				<span class="label" id="fee-label">Network fee</span>
+				<div class="row speeds" role="group" aria-labelledby="fee-label">
 					{#each ['Slow', 'Normal', 'Fast'] as s, i (s)}
-						<button class:primary={speed === i} onclick={() => (speed = i as 0 | 1 | 2)}>{s}</button
+						<button
+							class:primary={speed === i}
+							aria-pressed={speed === i}
+							onclick={() => (speed = i as 0 | 1 | 2)}>{s}</button
 						>
 					{/each}
 				</div>
@@ -162,8 +191,8 @@
 					</p>
 				</div>
 			{:else}
-				<div class="stack tight" role="radiogroup" aria-label="The rest of this account">
-					<span class="label">The rest of this account</span>
+				<fieldset class="stack tight">
+					<legend class="label">The rest of this account</legend>
 					<label class="choice" class:on={moveRest}>
 						<input type="radio" name="rest" value={true} bind:group={moveRest} />
 						<span class="grow">
@@ -195,13 +224,13 @@
 							>
 						</span>
 					</label>
-				</div>
+				</fieldset>
 			{/if}
 			{#if exposure === 'exposed'}<div class="notice warn small">
 					This account's key is already exposed. Moving everything to a fresh account is the safe
 					choice.
 				</div>{/if}
-			{#if problem}<div class="notice danger">{problem}</div>{/if}
+			{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
 			<button class="primary" onclick={review} disabled={busy}
 				>{busy ? 'Preparing…' : 'Review'}</button
 			>
@@ -234,25 +263,27 @@
 	{:else if step === 'reply'}
 		<p class="dim">On the phone, after signing: hold its code in front of this camera.</p>
 		<CameraScan onmessage={replied} />
-		{#if problem}<div class="notice danger">{problem}</div>{/if}
+		{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
 		<div><button onclick={() => (step = 'request')}>Show the request again</button></div>
 	{:else if step === 'done'}
 		<div class="card stack">
 			{#if busy}
-				<p>Broadcasting…</p>
+				<p role="status">Broadcasting…</p>
 			{:else}
 				{#each results as r, i (i)}
+					{@const link = r.hash ? explorerLink(asset.chain.explorer.tx, r.hash) : null}
 					<div class="row">
 						<span class="pill {r.ok ? 'safe' : 'warn'}">{r.ok ? 'Sent' : 'Refused'}</span>
-						{#if r.hash}<a
-								class="mono small grow hash"
-								href={explorerLink(asset.chain.explorer.tx, r.hash)}
-								target="_blank"
-								rel="noreferrer">{r.hash}</a
-							>{/if}
+						{#if link}<a class="mono small grow hash" href={link} target="_blank" rel="noreferrer"
+								>{r.hash}</a
+							>{:else if r.hash}<span class="mono small grow hash">{r.hash}</span>{/if}
 						{#if r.error}<span class="small grow">{r.error}</span>{/if}
 					</div>
 				{/each}
+				{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
+				{#if problem || results.some((r) => !r.ok)}
+					<button onclick={publish}>Broadcast again</button>
+				{/if}
 				<button class="primary" onclick={back}>Done</button>
 			{/if}
 		</div>
@@ -265,6 +296,16 @@
 	}
 	.tight {
 		gap: 6px;
+	}
+	fieldset {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		min-width: 0;
+	}
+	legend {
+		padding: 0;
+		margin-bottom: 6px;
 	}
 	.speeds button {
 		flex: 1;

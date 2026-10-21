@@ -7,7 +7,7 @@
 	--stroke: #262b35;
 	--text: #eceef2;
 	--dim: #9ba3b4;
-	--faint: #687082;
+	--faint: #7f879a;
 	--lamp: #f2b544;
 	--on-lamp: #1c1505;
 	--safe: #3fd08f;
@@ -145,6 +145,14 @@ input:focus,
 textarea:focus,
 select:focus {
 	border-color: color-mix(in srgb, var(--lamp) 60%, var(--stroke));
+}
+/* the focus, where the browser shows it (keyboard use, typing in a field) */
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+	outline: 2px solid var(--lamp);
+	outline-offset: 2px;
 }
 .pill {
 	display: inline-flex;

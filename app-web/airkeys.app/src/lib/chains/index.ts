@@ -3,7 +3,14 @@ import type { Chain, Network } from '../registry';
 import { chainsOf } from '../state.svelte';
 import * as bitcoin from './bitcoin';
 import * as evm from './evm';
-import type { Asset, Broadcast, Exposure, Prepared, SendIntent } from './net';
+import {
+	mapLimit,
+	type Asset,
+	type Broadcast,
+	type Exposure,
+	type Prepared,
+	type SendIntent
+} from './net';
 
 export type { Asset, Broadcast, Exposure, Prepared, SendIntent };
 
@@ -18,9 +25,6 @@ export interface Look {
 	used: boolean;
 }
 
-/** Bitcoin requests in flight at once: public Esplora servers limit request rates. */
-const BITCOIN_PARALLEL = 3;
-
 /** What each address holds on every chain of its network, and whether its key is known. EVM
  * chains are asked in batches across addresses, Bitcoin a few addresses at a time. */
 export async function load(network: Network, addresses: string[]): Promise<Map<string, Look>> {
@@ -33,28 +37,24 @@ export async function load(network: Network, addresses: string[]): Promise<Map<s
 				out.set(a, { assets: [], failed: [], exposure: 'unknown', used: false });
 			return out;
 		}
-		const queue = [...addresses];
-		const worker = async () => {
-			for (let a = queue.shift(); a !== undefined; a = queue.shift()) {
-				try {
-					const r = await bitcoin.look(chain, a);
-					out.set(a, {
-						assets: r.assets,
-						failed: [],
-						exposure: r.exposed ? 'exposed' : 'hidden',
-						used: r.used
-					});
-				} catch (e) {
-					out.set(a, {
-						assets: [],
-						failed: [`${chain.name}: ${(e as Error).message}`],
-						exposure: 'unknown',
-						used: false
-					});
-				}
+		await mapLimit(addresses, bitcoin.PARALLEL, async (a) => {
+			try {
+				const r = await bitcoin.look(chain, a);
+				out.set(a, {
+					assets: r.assets,
+					failed: [],
+					exposure: r.exposed ? 'exposed' : 'hidden',
+					used: r.used
+				});
+			} catch (e) {
+				out.set(a, {
+					assets: [],
+					failed: [`${chain.name}: ${(e as Error).message}`],
+					exposure: 'unknown',
+					used: false
+				});
 			}
-		};
-		await Promise.all(Array.from({ length: BITCOIN_PARALLEL }, worker));
+		});
 		return out;
 	}
 	const chains = chainsOf('evm');

@@ -7,6 +7,8 @@ import { parseAddress } from './addresses';
 export const VERSION = 1;
 /** Every account number the phone offers (100) on both networks (PROTOCOL §4). */
 export const MAX_ACCOUNTS = 200;
+/** The largest message, in bytes (PROTOCOL §2.6). */
+export const MAX_MESSAGE = 1 << 20;
 
 export interface Account {
 	network: Network;
@@ -18,12 +20,6 @@ export interface Account {
 export interface Target {
 	index?: number;
 	address?: string;
-}
-
-export interface TokenRef {
-	address: string;
-	symbol: string;
-	decimals: number;
 }
 
 export interface SignedTx {
@@ -54,7 +50,8 @@ class Refused extends Error {}
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
 	typeof v === 'object' && v !== null && !Array.isArray(v);
-const isIndex = (v: unknown): v is number =>
+/** An account number: 0 to 2³¹−1 (PROTOCOL §3). */
+export const isIndex = (v: unknown): v is number =>
 	Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 0x7fffffff;
 
 function only(o: Record<string, unknown>, keys: string[], what: string) {
@@ -93,7 +90,7 @@ const RAW: Record<Network, RegExp> = { bitcoin: /^(?:[0-9a-f]{2})+$/, evm: /^0x(
 
 /** Parses a message the phone sent (§4, §6). */
 export function parseMessage(bytes: Uint8Array): Incoming {
-	if (bytes.length > 1 << 20) throw new Refused('The message is larger than 1 MiB.');
+	if (bytes.length > MAX_MESSAGE) throw new Refused('The message is larger than 1 MiB.');
 	let v: unknown;
 	try {
 		v = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));

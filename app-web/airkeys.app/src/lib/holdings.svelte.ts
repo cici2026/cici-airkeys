@@ -26,20 +26,27 @@ export function holdingOf(a: Account): Holding | undefined {
 }
 
 async function round(network: Network, accounts: Account[]) {
-	const looks = await load(
-		network,
-		accounts.map((a) => a.address)
-	);
+	let looks = new Map<string, Look>();
+	let failed = 'No answer.';
+	try {
+		looks = await load(
+			network,
+			accounts.map((a) => a.address)
+		);
+	} catch (e) {
+		failed = (e as Error).message;
+	}
 	for (const a of accounts) {
 		cache[key(a)] = {
-			...(looks.get(a.address) ?? { ...blank, failed: ['No answer.'] }),
+			...(looks.get(a.address) ?? { ...blank, failed: [failed] }),
 			loading: false
 		};
 	}
 }
 
-/** Loads these accounts' holdings (again). With `gap`, Bitcoin accounts are read in order and
- * the reading stops after `GAP` unused ones in a row; the rest are marked skipped. */
+/** Loads these accounts' holdings (again); it never fails: an account that could not be read
+ * says why. With `gap`, Bitcoin accounts are read in order and the reading stops after `GAP`
+ * unused ones in a row; the rest are marked skipped. */
 export async function refresh(accounts: Account[], gap = false) {
 	for (const a of accounts)
 		cache[key(a)] = { ...(cache[key(a)] ?? blank), loading: true, skipped: false };
@@ -58,8 +65,11 @@ export async function refresh(accounts: Account[], gap = false) {
 				}
 				const some = btc.slice(i, i + 3);
 				await round('bitcoin', some);
-				for (const a of some)
-					unused = cache[key(a)].used || cache[key(a)].failed.length ? 0 : unused + 1;
+				for (const a of some) {
+					// (gone when the mode switched meanwhile)
+					const h = cache[key(a)];
+					unused = !h || h.used || h.failed.length ? 0 : unused + 1;
+				}
 			}
 		})()
 	]);
@@ -68,15 +78,23 @@ export async function refresh(accounts: Account[], gap = false) {
 /** Loads the accounts not loaded yet, Bitcoin up to the gap. */
 export function ensure(...accounts: Account[]) {
 	const missing = accounts.filter((a) => !cache[key(a)]);
-	if (missing.length) refresh(missing, true);
+	if (missing.length) void refresh(missing, true);
 }
 
 /** The account the rest moves to: the lowest connected account, other than `except`, that the
  * web app has read and seen never used. `null` while none is known to be unused — then more
- * accounts must be connected (or read) first; an account it has not seen is not assumed new. */
+ * accounts must be connected (or read) first; an account it has not seen is not assumed new.
+ * A number stored with two addresses (two wallets connected here) is never chosen: in one of
+ * them it may be used. */
 export function freshIndex(network: Network, except: number): number | null {
-	const fresh = store.accounts
-		.filter((a) => a.network === network && a.index !== except)
+	const mine = store.accounts.filter((a) => a.network === network);
+	const doubtful = new Set(
+		mine
+			.filter((a) => mine.some((b) => b.index === a.index && b.address !== a.address))
+			.map((a) => a.index)
+	);
+	const fresh = mine
+		.filter((a) => a.index !== except && !doubtful.has(a.index))
 		.filter((a) => {
 			const h = holdingOf(a);
 			return (

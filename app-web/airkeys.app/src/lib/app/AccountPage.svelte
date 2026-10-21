@@ -14,7 +14,11 @@
 	let { account, send, back }: { account: Account; send: (a: Asset) => void; back: () => void } =
 		$props();
 	const h = $derived(holdingOf(account));
-	let copied = $state(false);
+	// none on a network without a chain in this mode, or with an explorer that is not a web page
+	const explorer = $derived(
+		explorerLink(chainsOf(account.network)[0]?.explorer.address ?? '', account.address)
+	);
+	let copied = $state('');
 	// a skipped account (past the gap of unused ones) is read when it is opened
 	$effect(() => {
 		if (holdingOf(account)?.skipped) refresh([account]);
@@ -29,9 +33,14 @@
 	);
 
 	async function copy() {
-		await navigator.clipboard.writeText(account.address);
-		copied = true;
-		setTimeout(() => (copied = false), 1500);
+		try {
+			await navigator.clipboard.writeText(account.address);
+			copied = 'Copied';
+		} catch {
+			// no clipboard (an insecure page, or not allowed): the address is on screen
+			copied = 'Not copied: select the address';
+		}
+		setTimeout(() => (copied = ''), 1500);
 	}
 </script>
 
@@ -58,13 +67,10 @@
 			<div class="label">Receive at</div>
 			<Address address={account.address} size={17} />
 			<div class="row">
-				<button onclick={copy}>{copied ? 'Copied' : 'Copy address'}</button>
-				<a
-					class="small"
-					href={explorerLink(chainsOf(account.network)[0].explorer.address, account.address)}
-					target="_blank"
-					rel="noreferrer">Explorer ↗</a
-				>
+				<button onclick={copy}>{copied || 'Copy address'}</button>
+				{#if explorer}<a class="small" href={explorer} target="_blank" rel="noreferrer"
+						>Explorer ↗</a
+					>{/if}
 			</div>
 			{#if account.network === 'evm'}<p class="small">The same address on every EVM chain.</p>{/if}
 		</div>
@@ -110,7 +116,7 @@
 		<p class="small">Nothing on {empty.join(', ')}.</p>
 	{/if}
 	{#if h?.failed.length}
-		<div class="notice warn small">
+		<div class="notice warn small" role="status">
 			Not reachable: {h.failed.join('; ')}. Change the endpoint in Settings.
 		</div>
 	{/if}

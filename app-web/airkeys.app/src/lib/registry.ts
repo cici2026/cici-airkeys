@@ -2,6 +2,7 @@
 // token listed here is one the phone shows as listed. RPC and explorer URLs are defaults the
 // settings can replace.
 import data from '../../../../registry/networks.json';
+import { isHttpUrl } from './chains/net';
 
 export type Network = 'bitcoin' | 'evm';
 export const NETWORKS: Network[] = ['bitcoin', 'evm'];
@@ -55,6 +56,9 @@ export function path(network: Network, index: number): string {
 	}
 }
 
-export function explorerLink(template: string, value: string): string {
-	return template.replace('{}', value);
+/** The explorer's page for a hash or an address; `null` when the template ("{}" for the value)
+ * is empty or not a web address. */
+export function explorerLink(template: string, value: string): string | null {
+	const url = template.replace('{}', value);
+	return template.includes('{}') && isHttpUrl(url) ? url : null;
 }

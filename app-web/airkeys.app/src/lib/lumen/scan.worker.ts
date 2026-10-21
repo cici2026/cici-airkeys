@@ -1,8 +1,6 @@
 // Reads Lumen Code from camera frames off the main thread: scan, collect packets, rebuild the
 // message. The page posts frames; the worker answers with progress and, once, the message.
-// @ts-expect-error — plain ES modules without types
 import { Scanner } from 'lumen-code/src/core/scan.js';
-// @ts-expect-error — plain ES modules without types
 import { Receiver } from 'lumen-code/src/core/transfer.js';
 
 const scanner = new Scanner();

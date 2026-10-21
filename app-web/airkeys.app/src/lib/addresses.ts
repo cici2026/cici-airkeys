@@ -2,7 +2,8 @@
 // word: anything it would refuse is refused here first, with the same reason).
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { base58check, bech32, bech32m } from '@scure/base';
+import { ripemd160 } from '@noble/hashes/legacy.js';
+import { base58check, bech32, bech32m, hex } from '@scure/base';
 import type { Network } from './registry';
 
 const b58c = base58check(sha256);
@@ -84,6 +85,19 @@ export function parseBitcoin(s: string): { kind: BtcKind; script: Uint8Array } {
 		/* fall through */
 	}
 	throw new Error(`${s} is not a valid Bitcoin mainnet address.`);
+}
+
+/** Whether `to` pays the key behind the P2WPKH address `own`: as itself in any case, or as the
+ * legacy (P2PKH) or nested (P2SH-P2WPKH) address of the same key (PROTOCOL §7.4). */
+export function paysSameKey(own: string, to: string): boolean {
+	const key = parseBitcoin(own).script.slice(2);
+	const nested = ripemd160(sha256(Uint8Array.of(0, 20, ...key)));
+	const scripts = [
+		Uint8Array.of(0, 20, ...key),
+		Uint8Array.of(0x76, 0xa9, 20, ...key, 0x88, 0xac),
+		Uint8Array.of(0xa9, 20, ...nested, 0x87)
+	].map((s) => hex.encode(s));
+	return scripts.includes(hex.encode(parseBitcoin(to).script));
 }
 
 // ------------------------------------------------------------------ any network

@@ -3,10 +3,7 @@
 	// smooth. `onmessage` gets the complete message once.
 	import { onDestroy, onMount } from 'svelte';
 
-	let {
-		onmessage,
-		hint = 'Hold the phone in front of the camera, its code facing it.'
-	}: { onmessage: (bytes: Uint8Array) => void; hint?: string } = $props();
+	let { onmessage }: { onmessage: (bytes: Uint8Array) => void } = $props();
 	let video: HTMLVideoElement;
 	let error = $state('');
 	let seen = $state(false);
@@ -17,21 +14,55 @@
 	let stopped = false;
 	let canvas: OffscreenCanvas | HTMLCanvasElement;
 
+	/** Why the camera did not start, in words a person can act on. */
+	function why(e: unknown): string {
+		switch ((e as Error)?.name) {
+			case 'NotAllowedError':
+			case 'SecurityError':
+				return 'The browser was not allowed to use the camera. Allow it for this page, then try again.';
+			case 'NotFoundError':
+			case 'OverconstrainedError':
+				return 'No camera is available.';
+			case 'NotReadableError':
+			case 'AbortError':
+				return 'The camera is in use by another app or tab. Close it there, then try again.';
+			default:
+				return `The camera did not start: ${(e as Error)?.message ?? e}`;
+		}
+	}
+
 	onMount(async () => {
+		// browsers give the camera to secure pages only: HTTPS, or this computer
+		if (!isSecureContext || !navigator.mediaDevices) {
+			error =
+				'The camera needs a secure page: open Airkeys over HTTPS (or from localhost), or as the browser extension.';
+			return;
+		}
+		let s: MediaStream;
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({
+			s = await navigator.mediaDevices.getUserMedia({
 				video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
 				audio: false
 			});
 		} catch (e) {
-			error =
-				(e as Error).name === 'NotAllowedError'
-					? 'The browser was not allowed to use the camera. Allow it for this page, then try again.'
-					: 'No camera is available.';
+			if (!stopped) error = why(e);
 			return;
 		}
+		// the view was left while the browser asked: let the camera go at once
+		if (stopped) {
+			s.getTracks().forEach((t) => t.stop());
+			return;
+		}
+		stream = s;
 		video.srcObject = stream;
-		await video.play();
+		try {
+			await video.play();
+		} catch (e) {
+			if (!stopped) error = `The camera's picture did not start: ${(e as Error).message}`;
+			stop();
+			return;
+		}
+		if (stopped) return;
 		worker = new Worker(new URL('./scan.worker.ts', import.meta.url), { type: 'module' });
 		worker.onmessage = (e) => {
 			busy = false;
@@ -42,6 +73,10 @@
 			}
 			seen = e.data.seen;
 			if (e.data.progress) progress = e.data.progress;
+		};
+		worker.onerror = (e) => {
+			error = `The code reader stopped: ${e.message || 'it did not load'}. Reload the page.`;
+			stop();
 		};
 		tick();
 	});
@@ -77,14 +112,26 @@
 	<div class="frame" class:seen></div>
 </div>
 {#if error}
-	<p class="problem">{error}</p>
+	<p class="problem" role="alert">{error}</p>
 {:else if progress && progress.needed > 0}
-	<div class="bar">
-		<div style="width: {Math.min(100, (100 * progress.received) / progress.needed)}%"></div>
+	{@const percent = Math.min(100, Math.round((100 * progress.received) / progress.needed))}
+	<div
+		class="bar"
+		role="progressbar"
+		aria-label="Receiving the code"
+		aria-valuemin={0}
+		aria-valuemax={100}
+		aria-valuenow={percent}
+	>
+		<div style="width: {percent}%"></div>
 	</div>
-	<p class="dim">Receiving…</p>
+	<p class="dim" role="status">Receiving…</p>
 {:else}
-	<p class="dim">{seen ? 'Code found — hold still.' : hint}</p>
+	<p class="dim" role="status">
+		{seen
+			? 'Code found — hold still.'
+			: 'Hold the phone in front of the camera, its code facing it.'}
+	</p>
 {/if}
 
 <style>

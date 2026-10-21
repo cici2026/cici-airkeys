@@ -16,7 +16,7 @@ rmSync(out, { recursive: true, force: true });
 execFileSync(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), 'build'], {
 	cwd: root,
 	env: { ...process.env, AIRKEYS_EXTENSION: '1' },
-	stdio: 'ignore'
+	stdio: 'inherit'
 });
 
 let moved = 0;
@@ -37,6 +37,11 @@ const walk = (dir) => {
 	}
 };
 walk(out);
+// none moved: the build changed, and the extension's policy would block the page's start
+if (!moved) {
+	console.error('extension/: no inline script found to move; the page would not start.');
+	process.exit(1);
+}
 
 writeFileSync(
 	path.join(out, 'manifest.json'),
@@ -45,6 +50,8 @@ writeFileSync(
 			manifest_version: 3,
 			name: 'Airkeys',
 			version: pkg.version,
+			// CSS color-mix()
+			minimum_chrome_version: '111',
 			description:
 				'The online side of the Airkeys cold wallet: balances, transfer requests, broadcasting. It never holds a key.',
 			icons: { 16: 'icons/icon-16.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },

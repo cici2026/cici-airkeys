@@ -41,7 +41,6 @@
 	let showEmpty = $state(false);
 	const shown = $derived(showEmpty ? groups : groups.filter((g, k) => k === 0 || !empty(g)));
 
-	/** "Ethereum: 10 ETH, 1,000 USDC · Base: 0.2 ETH" — what the account holds, by chain. */
 	/** What the account holds, a short line per chain: "Ethereum · 5.77 ETH, 37.19 USDC +3". At
 	 * most three chains; the rest are counted. */
 	function summary(a: Account): string[] {
