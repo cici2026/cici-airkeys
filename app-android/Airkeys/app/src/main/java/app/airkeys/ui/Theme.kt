@@ -24,6 +24,11 @@ object Ink {
     val safe = Color(0xFF3FD08F)
     val warn = Color(0xFFF5A524)
     val danger = Color(0xFFF2555A)
+    // a message's JSON: names, strings, numbers, true/false/null
+    val jsonKey = Color(0xFF8FB3FF)
+    val jsonText = Color(0xFF7FD6A4)
+    val jsonNumber = Color(0xFFF2B544)
+    val jsonLiteral = Color(0xFFC9A0FF)
 
     fun network(kind: NetworkKind): Color = when (kind) {
         NetworkKind.BITCOIN -> Color(0xFFF7931A)

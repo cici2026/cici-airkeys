@@ -73,6 +73,11 @@ final class FlowTests: XCTestCase {
             shot("code-signed-\(n)")
             Thread.sleep(forTimeInterval: 0.15)
         }
+        // what the code says: the JSON, laid out
+        app.buttons["Message"].tap()
+        XCTAssertTrue(app.staticTexts["What the code says"].waitForExistence(timeout: 3))
+        shot("i06-message")
+        app.buttons["Code"].tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(app.staticTexts["Ethereum & EVM"].waitForExistence(timeout: 3))
         app.buttons["Close wallet"].tap()

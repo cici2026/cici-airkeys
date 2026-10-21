@@ -73,8 +73,8 @@ struct RootView: View {
             } actions: {
                 AkButton(title: "Show code", symbol: "qrcode", enabled: choices.contains { $0.selected }) { act(.showAccounts) }
             }
-        case let .code(title, caption, json):
-            CodeScreen(title: title, caption: caption, json: json, next: shell.codeFrame, act: act)
+        case let .code(title, caption, _, message):
+            CodeScreen(title: title, caption: caption, message: message, next: shell.codeFrame, act: act)
         case let .scan(title, hint, progress, problem):
             Page(title: title, onBack: { act(.back) }, scroll: false) {
                 ZStack {
@@ -352,7 +352,7 @@ private struct AccountScreen: View {
 private struct CodeScreen: View {
     let title: String
     let caption: String
-    let json: String
+    let message: [JsonPiece]
     let next: (UInt32, UInt32) -> CodeFrame?
     let act: (Action) -> Void
     @State private var reading = false
@@ -367,7 +367,7 @@ private struct CodeScreen: View {
             if reading {
                 Text("What the code says").font(.akHeading).foregroundStyle(Ink.text)
                 Card {
-                    Text(json).font(.system(size: 12, design: .monospaced)).foregroundStyle(Ink.dim)
+                    Text(highlighted(message)).font(.system(size: 12.5, design: .monospaced)).lineSpacing(3)
                         .multilineTextAlignment(.leading).textSelection(.enabled)
                 }
             } else {
@@ -377,6 +377,21 @@ private struct CodeScreen: View {
         } actions: {
             AkButton(title: "Done") { act(.done) }
         }
+    }
+}
+
+/// The message laid out by the core, coloured by kind.
+private func highlighted(_ pieces: [JsonPiece]) -> AttributedString {
+    pieces.reduce(into: AttributedString()) { text, p in
+        var piece = AttributedString(p.text)
+        piece.foregroundColor = switch p.kind {
+        case .key: Ink.jsonKey
+        case .text: Ink.jsonText
+        case .number: Ink.jsonNumber
+        case .literal: Ink.jsonLiteral
+        case .punctuation: Ink.faint
+        }
+        text += piece
     }
 }
 

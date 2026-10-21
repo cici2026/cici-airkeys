@@ -9,6 +9,7 @@
 	import { parseAddress } from '$lib/addresses';
 	import { formatUnits, parseUnits } from '$lib/units';
 	import CodeCanvas from '$lib/lumen/CodeCanvas.svelte';
+	import Json from '$lib/ui/Json.svelte';
 	import CameraScan from '$lib/lumen/CameraScan.svelte';
 	import { untrack } from 'svelte';
 
@@ -228,7 +229,7 @@
 		</div>
 		<details class="small">
 			<summary>What this code says</summary>
-			<pre>{JSON.stringify(prepared.request, null, 2)}</pre>
+			<Json value={prepared.request} />
 		</details>
 	{:else if step === 'reply'}
 		<p class="dim">On the phone, after signing: hold its code in front of this camera.</p>
@@ -312,10 +313,5 @@
 	}
 	.hash {
 		word-break: break-all;
-	}
-	pre {
-		white-space: pre-wrap;
-		word-break: break-all;
-		color: var(--dim);
 	}
 </style>

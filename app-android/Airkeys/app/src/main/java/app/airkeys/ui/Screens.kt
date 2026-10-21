@@ -48,7 +48,12 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import app.airkeys.core.AccountRow
+import app.airkeys.core.JsonKind
+import app.airkeys.core.JsonPiece
 import app.airkeys.core.Action
 import app.airkeys.core.CodeFrame
 import app.airkeys.core.NetworkKind
@@ -116,7 +121,7 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 }, actions = { PrimaryButton("Done", { act(Action.Done) }) }) {
                     if (reading) {
                         Text("What the code says", style = Type.heading)
-                        Card { Text(s.json, style = Type.mono.copy(fontSize = 12.sp, lineHeight = 17.sp, color = Ink.dim)) }
+                        Card { Text(highlighted(s.message), style = Type.mono.copy(fontSize = 12.5.sp, lineHeight = 19.sp)) }
                     } else {
                         CodeView(codeFrame, Modifier.weight(1f))
                         Text(s.caption, style = Type.dim, maxLines = 2)
@@ -434,6 +439,20 @@ private fun Check(on: Boolean) {
         Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(if (on) Ink.lamp else Ink.raised).border(1.dp, if (on) Ink.lamp else Ink.stroke, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) { if (on) Icon(Icons.check, null, tint = Ink.onLamp, modifier = Modifier.size(18.dp)) }
+}
+
+/** The message laid out by the core, coloured by kind. */
+private fun highlighted(pieces: List<JsonPiece>) = buildAnnotatedString {
+    for (p in pieces) {
+        val color = when (p.kind) {
+            JsonKind.KEY -> Ink.jsonKey
+            JsonKind.TEXT -> Ink.jsonText
+            JsonKind.NUMBER -> Ink.jsonNumber
+            JsonKind.LITERAL -> Ink.jsonLiteral
+            JsonKind.PUNCTUATION -> Ink.faint
+        }
+        withStyle(SpanStyle(color = color)) { append(p.text) }
+    }
 }
 
 @Composable

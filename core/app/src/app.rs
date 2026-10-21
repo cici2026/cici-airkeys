@@ -786,9 +786,12 @@ impl App for Airkeys {
                     })
                     .collect(),
             },
-            (Phase::Code { title, caption, json, .. }, _) => {
-                Screen::Code { title: title.clone(), caption: caption.clone(), json: json.clone() }
-            }
+            (Phase::Code { title, caption, json, .. }, _) => Screen::Code {
+                title: title.clone(),
+                caption: caption.clone(),
+                json: json.clone(),
+                message: crate::view::lay_out_json(json),
+            },
             (Phase::Scan { purpose, progress, problem, .. }, _) => {
                 let (title, hint) = match purpose {
                     Purpose::Request => {

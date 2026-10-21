@@ -15,6 +15,11 @@ enum Ink {
     static let safe = Color(hex: 0x3FD08F)
     static let warn = Color(hex: 0xF5A524)
     static let danger = Color(hex: 0xF2555A)
+    // a message's JSON: names, strings, numbers, true/false/null
+    static let jsonKey = Color(hex: 0x8FB3FF)
+    static let jsonText = Color(hex: 0x7FD6A4)
+    static let jsonNumber = Color(hex: 0xF2B544)
+    static let jsonLiteral = Color(hex: 0xC9A0FF)
 
     static func network(_ kind: NetworkKind) -> Color {
         switch kind {
