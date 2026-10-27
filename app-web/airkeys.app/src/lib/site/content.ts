@@ -48,7 +48,18 @@ export interface Content {
 	features: { title: string; lead: string; items: { title: string; text: string }[] };
 	model: { title: string; head: [string, string]; rows: [string, string][]; points: string[] };
 	networks: { title: string; lead: string; bitcoin: string; evm: string; more: string };
-	web: { title: string; lead: string; points: string[]; open: string; alt: string };
+	web: {
+		title: string;
+		lead: string;
+		points: string[];
+		open: string;
+		alt: string;
+		/** The download button, then how to install it, around a link to the releases. */
+		extension: string;
+		install: string;
+		releases: string;
+		after: string;
+	};
 	platforms: { title: string; lead: string; android: string; ios: string; caption: string };
 	open: {
 		title: string;
@@ -251,7 +262,12 @@ export const en: Content = {
 			'Mainnet and testnet kept apart; EVM chains added from a list'
 		],
 		open: 'Open the web companion',
-		alt: 'The web companion: balances, and a transfer shown to the phone as a code'
+		alt: 'The web companion: balances, and a transfer shown to the phone as a code',
+		extension: 'Download the browser extension',
+		install:
+			'For Chrome, Edge and Brave. Unzip it, open chrome://extensions, turn on Developer mode and choose Load unpacked. It does not update itself: new versions are on the ',
+		releases: 'releases page',
+		after: ', with their checksums.'
 	},
 	platforms: {
 		title: 'Android and iPhone',
@@ -529,7 +545,12 @@ export const zh: Content = {
 			'主网和测试网分开；可从列表添加 EVM 链'
 		],
 		open: '打开网页助手',
-		alt: '网页助手：余额，以及以动态码交给手机的一笔转账'
+		alt: '网页助手：余额，以及以动态码交给手机的一笔转账',
+		extension: '下载浏览器扩展',
+		install:
+			'适用于 Chrome、Edge 和 Brave。解压后打开 chrome://extensions，开启“开发者模式”，选择“加载已解压的扩展程序”。扩展不会自动更新，新版本和校验值在',
+		releases: '发布页面',
+		after: '。'
 	},
 	platforms: {
 		title: 'Android 与 iPhone',

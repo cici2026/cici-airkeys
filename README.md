@@ -63,7 +63,7 @@ which screen comes next, what it says and what may be signed, is made in `core/`
 | Android app | JDK 17 and 21, Android SDK + NDK, `cargo install cargo-ndk` | `cd app-android/Airkeys && ./gradlew :app:assembleRelease` |
 | iOS app | Apple silicon, Xcode 26, `brew install xcodegen` | `core/scripts/build-ios.sh && cd app-ios && xcodegen && open Airkeys.xcodeproj` |
 | Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `.svelte-kit/cloudflare/` |
-| Browser extension | the same | `bun run extension` → `extension/` (load unpacked) |
+| Browser extension | the same | `bun run extension` → `extension/` (load unpacked); each [release](https://github.com/mondaylabsltd/airkeys/releases) has it built |
 
 airkeys.app runs on Cloudflare Workers (`bun run deploy`). Every page is prerendered, so to
 self-host the web app, copy `.svelte-kit/cloudflare/` without `_worker.js` to any static host

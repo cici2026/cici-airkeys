@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The landing page of airkeys.app, in either language: the words are content.ts's.
 	import type { Content } from './content';
-	import { site, repoFile, securityReport, listings, launched } from './site';
+	import { site, repoFile, securityReport, listings, launched, extension } from './site';
 	import { registry } from '#lib/registry.ts';
 	import Mark from '#lib/ui/Mark.svelte';
 	import Badge from '#lib/ui/Badge.svelte';
@@ -225,7 +225,11 @@
 		</ul>
 		<div class="actions">
 			<a class="button tonal" href={app}>{c.web.open}</a>
+			<a class="button tonal" href={extension.download} rel="external">{c.web.extension}</a>
 		</div>
+		<p class="caption">
+			{c.web.install}<a href={extension.releases} rel="external">{c.web.releases}</a>{c.web.after}
+		</p>
 	</section>
 
 	<section class="section wrap platforms">

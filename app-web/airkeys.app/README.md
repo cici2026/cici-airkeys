@@ -66,7 +66,8 @@ camera only to secure pages (`localhost` counts as secure, so `bun run preview` 
 
 The extension runs in Chromium browsers (Chrome, Edge, Brave; version 111 or later): open
 `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and pick the
-`extension/` folder. Its toolbar button opens the wallet in a tab. Firefox is not supported.
+`extension/` folder. Every GitHub release has it built from the tagged commit, as
+`airkeys-extension.zip` with its SHA-256. Its toolbar button opens the wallet in a tab. Firefox is not supported.
 
 `scripts/e2e.mjs` runs the built app in headless Chrome, its webcam a video of the phone's
 screen (the real Rust core), against an anvil fork of Ethereum mainnet: it connects, sends USDC

@@ -28,5 +28,11 @@ export const launched = onSale.length > 0;
 /** A file in the repository, with an optional #anchor. */
 export const repoFile = (path: string) => `${site.repository}/blob/main/${path}`;
 
+/** The browser extension, attached to every GitHub release (.github/workflows/release.yml). */
+export const extension = {
+	download: `${site.repository}/releases/latest/download/airkeys-extension.zip`,
+	releases: `${site.repository}/releases`
+};
+
 /** Where vulnerabilities are reported, privately (SECURITY.md). */
 export const securityReport = `${site.repository}/security/advisories/new`;

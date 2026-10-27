@@ -80,7 +80,9 @@ The captions are in `render.mjs`.
    lines become the stores' "What's New".
 3. Build both apps from a clean checkout of that commit, upload them, and tag it once both
    builds are uploaded: `git tag -a v0.2.0 -m v0.2.0 && git push origin v0.2.0`. The tag is
-   how anyone matches a store version to its source.
+   how anyone matches a store version to its source. Pushing it also makes the GitHub release,
+   with the browser extension attached (`.github/workflows/release.yml`); the site's download
+   button always points at the latest one.
 4. Deploy the web companion from the same commit.
 5. After a store approves for the first time, set its listing URL in
    `app-web/airkeys.app/src/lib/site/site.ts` (`stores.googlePlay`, `stores.appStore`); the

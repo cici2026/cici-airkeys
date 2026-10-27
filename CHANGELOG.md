@@ -7,6 +7,8 @@ message changes.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-27
+
 ### Added
 
 - The phone apps (Android, iOS) on a shared Rust core: import a recovery phrase by typing or
@@ -31,6 +33,8 @@ message changes.
 - `store/`: the Google Play and App Store listings in English and Chinese, review notes,
   privacy and compliance answers, screenshots and graphics with the scripts that make them,
   and the release steps.
+- A version tag makes a GitHub release with the browser extension attached; the site links to
+  the latest one.
 
 ### Changed
 
@@ -41,3 +45,6 @@ message changes.
   (`m/65738275'/84'/0'/0'/0'/i'`, `m/65738275'/44'/60'/0'/0'/i'`), so no extended public key a
   standard wallet exported for the same phrase is an ancestor of an Airkeys account. Addresses
   derived earlier are on the old paths: move their funds first.
+
+[Unreleased]: https://github.com/mondaylabsltd/airkeys/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/mondaylabsltd/airkeys/releases/tag/v0.1.0

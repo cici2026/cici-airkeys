@@ -1,0 +1,59 @@
+name: Release
+
+# A version tag (v0.2.0) makes a GitHub release with the browser extension attached, built from
+# that commit. airkeys.app links to releases/latest/download/airkeys-extension.zip, so the name
+# of the file never changes. The phone apps go to the stores (store/README.md).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-web/airkeys.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: The tag is the app's version
+        run: |
+          v=$(node -p 'require("./package.json").version')
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, package.json $v"; exit 1; }
+      - run: bun run test
+      - run: bun run extension
+      - name: Zip, with its checksum
+        run: |
+          mv extension airkeys-extension
+          zip -qrX airkeys-extension.zip airkeys-extension
+          sha256sum airkeys-extension.zip > airkeys-extension.zip.sha256
+          cat airkeys-extension.zip.sha256
+      - name: Release notes from the changelog
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          # the version's section of CHANGELOG.md, without its heading or the links at the end
+          awk -v v="$v" '/^## \[/ { on = index($0, "[" v "]") > 0; next } /^\[[^]]+\]: / { on = 0 } on' \
+            ../../CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ### Browser extension
+
+          `airkeys-extension.zip` is the web companion as a Chromium extension (Chrome, Edge,
+          Brave). Unzip it, open `chrome://extensions`, turn on Developer mode, choose Load
+          unpacked and pick the `airkeys-extension` folder. It does not update itself.
+          EOF
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Airkeys $GITHUB_REF_NAME" --notes-file notes.md
+          gh release upload "$GITHUB_REF_NAME" airkeys-extension.zip airkeys-extension.zip.sha256 --clobber
