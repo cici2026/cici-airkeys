@@ -262,8 +262,8 @@ want of fees.
 | Recovery without Airkeys | Each recipe of RECOVERY.md, run with Bitcoin Core 31.1 and `cast` 1.5 (its root-key script taken from the document), derives the phone's addresses for three accounts per network, with and without a passphrase; a Bitcoin Core wallet built from the descriptor sweeps coins on regtest (`e2e/recovery.mjs`) |
 | Every refusal in PROTOCOL §7 | One check each across the e2e scripts and unit tests (wrong wallet, checksum, dust, fee attack, nonce gap, token metadata, …) |
 | An independent review | A separate audit of the core, the protocol and the web app's parser and builders: signing re-verified with libsecp256k1 and alloy, 229,000 mutated camera frames and 3,000 crafted code packets without a panic. Its findings — a crash and a minutes-long hang from crafted addresses, paying `from` back under another spelling, fee warnings weighed against change, an underpaying Bitcoin build, a decimal comma read as a thousands separator, layer-2 fees — are fixed, each with a test (`wallet/tests/adversarial.rs`, `scripts/chains/bitcoin.ts`, `web.test.ts`) |
-| A real camera, both ways | A Redmi K40's camera read a request code from a MacBook's screen in about 3 seconds (15 frames/s, ~11 ms per frame) and showed exactly the request. A MacBook's FaceTime HD camera (1080p), in the web app, read all 100 accounts (200 addresses) from the K40's full-screen code, held by hand under glare, about a second after it first saw the code |
-| The air gap on real phones | Redmi K40: Bluetooth on in MIUI's half-on mode detected (the API alone said off), Wi-Fi scanning detected, every row off with Airplane mode, Bluetooth and Location off. iPhone 11: Wi-Fi, Bluetooth and a network shown as on |
+| A real camera, both ways | A Redmi K40's camera read a request code from a MacBook's screen in about 3 seconds (15 frames/s, ~11 ms per frame) and showed exactly the request. A MacBook's FaceTime HD camera (1080p), in the web app, read all 100 accounts (200 addresses) from the K40's full-screen code, held by hand under glare, about a second after it first saw the code. An iPhone 15 Pro (iOS 26.5.2, offline) read a sign request from a MacBook's screen and signed it; the MacBook's camera read the reply in 0.3 s, and its two transactions were byte for byte the Redmi K40's for the same request |
+| The air gap on real phones | Redmi K40: Bluetooth on in MIUI's half-on mode detected (the API alone said off), Wi-Fi scanning detected, every row off with Airplane mode, Bluetooth and Location off. iPhone 11: Wi-Fi, Bluetooth and a network shown as on. Samsung Galaxy S22 (Android 15): Wi-Fi, Bluetooth, mobile data and a network each shown as on; every row off with Airplane mode, Wi-Fi and Bluetooth off |
 | App flows | The real FFI object driven through import (a word fixed in the middle too), SeedQR/CompactSeedQR images, passphrases, radios and "still active", the account range, connect (one account and all 100, read back from the code), review, signing (`core/app/tests/flows.rs`); the iOS UI tests fix a word from the grid and sign |
 | Codes on screen are readable | Screenshots of the full-screen code on the Android emulator and the iOS simulator decode to exactly the JSON shown — all 100 accounts (17 KB) from 11 screenshots on each, the signed reply from 2 |
 | Code sizes | A simulated 720p webcam (blur, sensor noise) filming codes 200–420 px wide in its image, with the real scanner: which grids read, and in how many frames (`core/app/examples/capacity.rs` counts the frames for real messages); `core/app/tests/flows.rs` checks the code's shape for an area |
@@ -275,10 +275,11 @@ want of fees.
 
 ## Limits
 
-- **Cameras are tested on one pair of devices** (Redmi K40, MacBook), both ways. Try your own
-  phone and computer before trusting them with funds.
-- The iOS camera path has not read a code on a device yet (the simulator has none); the app
-  runs on an iPhone 11 (iOS 26.5.2). Android ran on a Redmi K40 (Android 13), camera included.
+- **Cameras are tested on few devices** (Redmi K40 and iPhone 15 Pro, with a MacBook), both
+  ways. Try your own phone and computer before trusting them with funds.
+- Phones: iPhone 11 and iPhone 15 Pro (iOS 26.5.2), Redmi K40 (Android 13), Samsung Galaxy S22
+  (Android 15). The full flow — import, the addresses, review, signing, the Connect code — ran on
+  the Redmi and the S22 over adb, and on the iPhone 15 Pro by hand.
 - Haptics were checked in the Android emulator's vibration log and are the system wheel's own on
   iOS; how they feel was not judged on a real phone.
 - Bitcoin: accounts are native SegWit only, mainnet only; spending is all-coins (no coin

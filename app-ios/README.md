@@ -54,6 +54,13 @@ xcodebuild -project Airkeys.xcodeproj -scheme Airkeys \
 `core/app/examples/read_screens` decodes); on a phone they go into the test result. On a phone
 every radio must really be off: the shortcut below is for the simulator only.
 
+**Install while online.** iOS verifies a development-signed app online the first time it
+launches after an install; on an offline phone it refuses ("Developer App Certificate is not
+trusted"). So install (Xcode, or `xcodebuild test` once) with the phone online, open the app
+once, then take the phone offline. `xcodebuild test` reinstalls its test runner on every run,
+so the UI tests that need an offline phone (import, sign) cannot run on one; on a phone they
+pass up to the offline screen, and the rest is checked by hand.
+
 Debug builds only: `AIRKEYS_DELIVER=<base64 message>` hands the scan screen a message as if
 scanned, and on the simulator `AIRKEYS_ASSUME_OFFLINE=1` treats the radios as off (the
 simulator shares the Mac's network). Never open a wallet that holds funds in a debug build.
