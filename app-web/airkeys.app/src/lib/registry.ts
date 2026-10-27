@@ -46,13 +46,13 @@ export const NETWORK_NAMES: Record<Network, string> = {
 	evm: 'Ethereum & EVM'
 };
 
-/** Derivation paths, every step hardened (PROTOCOL §3). */
+/** Derivation paths, every step hardened, under Airkeys' own first step (PROTOCOL §3). */
 export function path(network: Network, index: number): string {
 	switch (network) {
 		case 'bitcoin':
-			return `m/84'/0'/0'/0'/${index}'`;
+			return `m/65738275'/84'/0'/0'/0'/${index}'`;
 		case 'evm':
-			return `m/44'/60'/0'/0'/${index}'`;
+			return `m/65738275'/44'/60'/0'/0'/${index}'`;
 	}
 }
 

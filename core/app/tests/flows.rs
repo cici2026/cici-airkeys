@@ -319,7 +319,7 @@ fn a_passphrase_opens_another_wallet() {
     assert!(matches!(s.view.screen, Screen::Passphrase { .. }), "a refused passphrase opens nothing");
     s.act(Action::PassphraseInput { passphrase: "TREZOR".into() });
     let Screen::Home { accounts, .. } = s.act(Action::Open).clone() else { panic!() };
-    assert_eq!(accounts[1].address, "0xeD9fEfdE5cd2905De816068735350Cf3b111e46a");
+    assert_eq!(accounts[1].address, "0x1930d009d71be5d487211a83E51b5973b90ee69b");
     // back from the passphrase keeps what was typed
     s.act(Action::Close);
     s.act(Action::Begin);
@@ -380,7 +380,7 @@ fn connect_shows_addresses_only() {
     let networks: Vec<Network> = accounts.iter().map(|a| a.network).collect();
     assert_eq!(networks, vec![Network::Evm], "Bitcoin was deselected");
     assert!(accounts.iter().all(|a| a.index == 1));
-    assert_eq!(accounts[0].address, "0x4B4dE798e77cF830AdCb49Cccb3D75bf2A149327");
+    assert_eq!(accounts[0].address, "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8");
     assert!(matches!(s.act(Action::Done), Screen::Home { index: 1, .. }));
     assert!(s.core.code_frame(1080, 1800).is_none(), "leaving the code screen stops the code");
     assert!(!s.awake);
@@ -454,7 +454,7 @@ fn the_wheel_offers_accounts_0_to_99() {
 }
 
 fn evm_request() -> String {
-    r#"{"airkeys":1,"type":"sign","id":"flow-1","network":"evm","chainId":8453,"from":{"index":0,"address":"0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"25000000","token":{"address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","symbol":"USDC","decimals":6},"nonce":4,"gas":90000,"maxFeePerGas":"2000000000","maxPriorityFeePerGas":"1000000"},{"to":{"index":1},"amount":"300000000000000000","nonce":5,"gas":21000,"maxFeePerGas":"2000000000","maxPriorityFeePerGas":"2000000000"}]}"#.to_string()
+    r#"{"airkeys":1,"type":"sign","id":"flow-1","network":"evm","chainId":8453,"from":{"index":0,"address":"0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"25000000","token":{"address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","symbol":"USDC","decimals":6},"nonce":4,"gas":90000,"maxFeePerGas":"2000000000","maxPriorityFeePerGas":"1000000"},{"to":{"index":1},"amount":"300000000000000000","nonce":5,"gas":21000,"maxFeePerGas":"2000000000","maxPriorityFeePerGas":"2000000000"}]}"#.to_string()
 }
 
 #[test]
@@ -497,8 +497,8 @@ fn refuses_a_request_for_another_wallet() {
     s.act(Action::Scan);
     s.film(
         &evm_request().replace(
-            "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03",
-            "0x4B4dE798e77cF830AdCb49Cccb3D75bf2A149327",
+            "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158",
+            "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8",
         ),
     );
     let Screen::Refused { title, message } = &s.view.screen else { panic!("{:?}", s.view.screen) };

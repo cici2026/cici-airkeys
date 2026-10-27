@@ -34,7 +34,7 @@ for (const pass of PASSPHRASES) {
 	const evm = accounts('evm', pass);
 	INDEXES.forEach((i, k) => {
 		const derive = (what) =>
-			run('cast', ['wallet', what, '--mnemonic', PHRASE, '--mnemonic-derivation-path', `m/44'/60'/0'/0'/${i}'`, ...(pass ? ['--mnemonic-passphrase', pass] : [])]);
+			run('cast', ['wallet', what, '--mnemonic', PHRASE, '--mnemonic-derivation-path', `m/65738275'/44'/60'/0'/0'/${i}'`, ...(pass ? ['--mnemonic-passphrase', pass] : [])]);
 		const address = derive('address');
 		const key = derive('private-key');
 		check(address === evm[k] && run('cast', ['wallet', 'address', '--private-key', key]) === evm[k], `cast: EVM ${label(i, pass)} ${address}, and its private key`);
@@ -50,7 +50,7 @@ async function bitcoinCore(chain, port) {
 	return { cli, stop };
 }
 const descriptor = (cli, key) => {
-	const d = `wpkh(${key}/84h/0h/0h/0h/*h)`;
+	const d = `wpkh(${key}/65738275h/84h/0h/0h/0h/*h)`;
 	return `${d}#${cli('getdescriptorinfo', d).checksum}`;
 };
 

@@ -9,8 +9,8 @@ use std::time::Instant;
 
 const PHRASE: &str =
     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-const BTC0: &str = "bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td";
-const EVM0: &str = "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03";
+const BTC0: &str = "bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3";
+const EVM0: &str = "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158";
 const FOREIGN_BTC: &str = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 const FOREIGN_EVM: &str = "0x000000000000000000000000000000000000dEaD";
 

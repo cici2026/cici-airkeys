@@ -38,13 +38,27 @@ accounts named in a reply the same way (PROTOCOL §6). This is the whole point: 
 Trezor-via-MetaMask and QR wallets all hand out public keys at connection time.
 
 ### Every derivation step hardened
-`m/84'/0'/0'/0'/i'` and `m/44'/60'/0'/0'/i'`. With non-hardened steps, a child private key
-plus its parent's extended public key gives the parent private key — so one key broken
-through its revealed public key could open every sibling. Hardened steps contain the damage to
-the one account. The cost: these are not the wallets' default paths; [RECOVERY.md](RECOVERY.md)
-shows how standard tools still recover them. Derivation is checked against the official
-BIP-39/BIP-32 vectors and independent implementations (Foundry, @scure/bip32, Bitcoin Core
-descriptors).
+`m/65738275'/84'/0'/0'/0'/i'` and `m/65738275'/44'/60'/0'/0'/i'`. With non-hardened steps, a
+child private key plus its parent's extended public key gives the parent private key — so one
+key broken through its revealed public key could open every sibling. Hardened steps contain the
+damage to the one account. The cost: these are not the wallets' default paths;
+[RECOVERY.md](RECOVERY.md) shows how standard tools still recover them. Derivation is checked
+against the official BIP-39/BIP-32 vectors and independent implementations (Foundry,
+@scure/bip32, Bitcoin Core descriptors).
+
+### A path of its own
+Hardened steps protect siblings from each other, not descendants from an ancestor: whoever has
+a node's private key and chain code derives everything below it, hardened or not. And the
+nodes standard wallets hand out as extended public keys — `m/44'/60'/0'` (Keystone),
+`m/84'/0'/0'` (any Bitcoin watch-only wallet) — would be ancestors of `m/44'/60'/0'/0'/i'` and
+`m/84'/0'/0'/0'/i'`. If the phrase had ever been in such a wallet, one quantum break of that
+extended key would reach every Airkeys account.
+
+So every path starts with `65738275'` — "AIRK" in ASCII decimal codes, as BIP-85 writes "SEED"
+as `83696968'`. No standard wallet derives under it, so no extended key another wallet exported
+for the same phrase is an ancestor of an Airkeys account, and a phrase used elsewhere too needs
+no warning. One case remains: a tool that exports the root's extended public key (depth 0)
+exposes every path; RECOVERY.md's root-key script is for an offline computer for that reason.
 
 ### Transfers only, built by the phone
 A request carries readable transfer fields — recipient, amount, token, fees, nonce — never

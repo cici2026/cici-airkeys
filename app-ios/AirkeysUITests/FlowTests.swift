@@ -18,7 +18,7 @@ final class FlowTests: XCTestCase {
     }
 
     static let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-    static let request = #"{"airkeys":1,"type":"sign","id":"ios-1","network":"evm","chainId":1,"from":{"index":0,"address":"0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"100000000","token":{"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":"USDC","decimals":6},"nonce":0,"gas":65000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"1000000000"},{"to":{"index":1},"amount":"500000000000000000","nonce":1,"gas":21000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"30000000000"}]}"#
+    static let request = #"{"airkeys":1,"type":"sign","id":"ios-1","network":"evm","chainId":1,"from":{"index":0,"address":"0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158"},"txs":[{"to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"100000000","token":{"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":"USDC","decimals":6},"nonce":0,"gas":65000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"1000000000"},{"to":{"index":1},"amount":"500000000000000000","nonce":1,"gas":21000,"maxFeePerGas":"30000000000","maxPriorityFeePerGas":"30000000000"}]}"#
 
     /// To $SCREENSHOTS on a simulator; on a phone, into the test result
     /// (`xcrun xcresulttool export attachments`).

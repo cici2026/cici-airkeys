@@ -51,8 +51,8 @@ ordered list of accounts `#0, #1, #2, …`. **Every derivation step is hardened.
 
 | `network` | Path for index *i* | Address |
 |---|---|---|
-| `bitcoin` | `m/84'/0'/0'/0'/i'` | P2WPKH, bech32 `bc1q…` |
-| `evm` | `m/44'/60'/0'/0'/i'` | `0x…`, EIP-55 checksum. One address for every EVM chain |
+| `bitcoin` | `m/65738275'/84'/0'/0'/0'/i'` | P2WPKH, bech32 `bc1q…` |
+| `evm` | `m/65738275'/44'/60'/0'/0'/i'` | `0x…`, EIP-55 checksum. One address for every EVM chain |
 
 *i* is 0 to 2³¹−1. The path of a network and index is fixed by this table, so no message
 carries a path. The phone offers accounts #0 to #99 to show and connect; a request may name
@@ -62,6 +62,11 @@ All steps are hardened for two reasons. There is no extended public key that cou
 every address. And a child key broken through its exposed public key reveals nothing about
 its parent or its siblings. That containment lets "spend from #0, move the rest to #1"
 keep #1 safe.
+
+The first step, `65738275'`, is "AIRK" in ASCII decimal codes (as BIP-85 writes "SEED" as
+`83696968'`). No standard wallet derives under it. A wallet that imported the same phrase may
+have handed out the extended public key of `m/44'/60'/0'` or `m/84'/0'/0'`; neither is an
+ancestor of an Airkeys account, so breaking it reaches none of them.
 
 An **account reference** names an address in a message:
 
@@ -81,8 +86,8 @@ The phone shares the accounts the person selects: one account number, or all of 
   "airkeys": 1,
   "type": "accounts",
   "accounts": [
-    { "network": "bitcoin", "index": 0, "address": "bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td" },
-    { "network": "evm", "index": 0, "address": "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03" }
+    { "network": "bitcoin", "index": 0, "address": "bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3" },
+    { "network": "evm", "index": 0, "address": "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158" }
   ]
 }
 ```
@@ -103,7 +108,7 @@ One request spends from one account on one network:
   "type": "sign",
   "id": "c0ffee01",
   "network": "evm",
-  "from": { "index": 0, "address": "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03" },
+  "from": { "index": 0, "address": "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158" },
   …network fields…
 }
 ```
@@ -122,7 +127,7 @@ What the phone shows is what it signs.
 {
   "airkeys": 1, "type": "sign", "id": "c0ffee02",
   "network": "bitcoin",
-  "from": { "index": 0, "address": "bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td" },
+  "from": { "index": 0, "address": "bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3" },
   "inputs": [
     { "txid": "8c14…", "vout": 1, "amount": "150000", "prevTx": "02000000000101…" }
   ],
@@ -152,7 +157,7 @@ What the phone shows is what it signs.
   "airkeys": 1, "type": "sign", "id": "c0ffee03",
   "network": "evm",
   "chainId": 1,
-  "from": { "index": 0, "address": "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03" },
+  "from": { "index": 0, "address": "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158" },
   "txs": [
     {
       "to": { "address": "0x8617E340B3D01FA5F11F306F4090FD50E238070D" },
@@ -202,7 +207,7 @@ A `token` names its ERC-20 contract with `address`, plus `symbol` and `decimals`
     { "hash": "0x5c50…", "raw": "0x02f8b1…" },
     { "hash": "0x9e1d…", "raw": "0x02f872…" }
   ],
-  "accounts": [ { "network": "evm", "index": 1, "address": "0x4B4dE798e77cF830AdCb49Cccb3D75bf2A149327" } ]
+  "accounts": [ { "network": "evm", "index": 1, "address": "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8" } ]
 }
 ```
 

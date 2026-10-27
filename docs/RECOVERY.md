@@ -2,14 +2,15 @@
 
 Airkeys keeps nothing: your funds are your recovery phrase (and passphrase, if you set one),
 read with standard BIP-39 and derived with standard BIP-32 / SLIP-0010. Only the paths are
-unusual — every step is hardened ([why](DESIGN.md#every-derivation-step-hardened)) — so a wallet
+unusual — they start with Airkeys' own step `65738275'` ([why](DESIGN.md#a-path-of-its-own)) and every
+step is hardened ([why](DESIGN.md#every-derivation-step-hardened)) — so a wallet
 that imports the phrase with its defaults shows *other*, empty addresses. Any tool that takes a
 full derivation path with hardened steps finds yours:
 
 | Network | Account *i* |
 |---|---|
-| Bitcoin | `m/84'/0'/0'/0'/i'` — native SegWit (P2WPKH, `bc1q…`) |
-| Ethereum and EVM chains | `m/44'/60'/0'/0'/i'` — the same address on every chain |
+| Bitcoin | `m/65738275'/84'/0'/0'/0'/i'` — native SegWit (P2WPKH, `bc1q…`) |
+| Ethereum and EVM chains | `m/65738275'/44'/60'/0'/0'/i'` — the same address on every chain |
 
 Before you start:
 
@@ -50,10 +51,10 @@ Then, with the key in place of `XPRV`:
 
 ```sh
 bitcoin-cli -named createwallet wallet_name=airkeys blank=true
-bitcoin-cli getdescriptorinfo "wpkh(XPRV/84h/0h/0h/0h/*h)"          # note its "checksum"
+bitcoin-cli getdescriptorinfo "wpkh(XPRV/65738275h/84h/0h/0h/0h/*h)"          # note its "checksum"
 bitcoin-cli -rpcwallet=airkeys importdescriptors \
-  '[{"desc": "wpkh(XPRV/84h/0h/0h/0h/*h)#CHECKSUM", "timestamp": 0, "range": [0, 99]}]'
-bitcoin-cli deriveaddresses "wpkh(XPRV/84h/0h/0h/0h/*h)#CHECKSUM" "[0,1]"   # compare
+  '[{"desc": "wpkh(XPRV/65738275h/84h/0h/0h/0h/*h)#CHECKSUM", "timestamp": 0, "range": [0, 99]}]'
+bitcoin-cli deriveaddresses "wpkh(XPRV/65738275h/84h/0h/0h/0h/*h)#CHECKSUM" "[0,1]"   # compare
 bitcoin-cli -rpcwallet=airkeys getbalance
 bitcoin-cli -rpcwallet=airkeys sendall '["bc1q…your new address"]'
 ```
@@ -69,8 +70,8 @@ set a passphrase:
 
 ```sh
 read -rs PHRASE                       # type the phrase; nothing is shown or kept in history
-cast wallet address     --mnemonic "$PHRASE" --mnemonic-derivation-path "m/44'/60'/0'/0'/0'"
-cast wallet private-key --mnemonic "$PHRASE" --mnemonic-derivation-path "m/44'/60'/0'/0'/0'"
+cast wallet address     --mnemonic "$PHRASE" --mnemonic-derivation-path "m/65738275'/44'/60'/0'/0'/0'"
+cast wallet private-key --mnemonic "$PHRASE" --mnemonic-derivation-path "m/65738275'/44'/60'/0'/0'/0'"
 ```
 
 The first command prints the address — compare it; import the private key into MetaMask,

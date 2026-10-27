@@ -41,8 +41,8 @@ impl Network {
     /// The derivation path of account `index`, every step hardened (PROTOCOL §3).
     pub fn path(self, index: u32) -> String {
         match self {
-            Network::Bitcoin => format!("m/84'/0'/0'/0'/{index}'"),
-            Network::Evm => format!("m/44'/60'/0'/0'/{index}'"),
+            Network::Bitcoin => format!("m/{PURPOSE}'/84'/0'/0'/0'/{index}'"),
+            Network::Evm => format!("m/{PURPOSE}'/44'/60'/0'/0'/{index}'"),
         }
     }
 }
@@ -77,6 +77,12 @@ macro_rules! bail {
     ($($t:tt)*) => { return Err($crate::Error(format!($($t)*))) };
 }
 pub(crate) use bail;
+
+/// The first step of every Airkeys path: "AIRK" as ASCII decimal codes (65 73 82 75), in the
+/// way BIP-85 spells "SEED" as `83696968'`. No standard wallet derives under it, so no extended
+/// public key a wallet ever exported for this phrase is an ancestor of an Airkeys account
+/// (PROTOCOL §3, DESIGN "A path of its own").
+pub const PURPOSE: u32 = 65_738_275;
 
 /// Accounts are numbered 0 to 2³¹ − 1 (a hardened index).
 pub const MAX_INDEX: u32 = 0x7fff_ffff;

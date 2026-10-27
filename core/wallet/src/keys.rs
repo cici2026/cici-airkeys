@@ -1,7 +1,7 @@
 //! Recovery phrases (BIP-39) and hardened key derivation (BIP-32). Only hardened steps exist
 //! here — there is no public derivation and no extended public key to leak (PROTOCOL §3).
 
-use crate::{MAX_INDEX, Network, Result, bail, bitcoin, evm, hash};
+use crate::{MAX_INDEX, Network, PURPOSE, Result, bail, bitcoin, evm, hash};
 use hmac::{Hmac, KeyInit, Mac};
 use k256::elliptic_curve::ff::PrimeField;
 use sha2::Sha512;
@@ -249,8 +249,8 @@ fn secp_scalar(bytes: &[u8; 32]) -> Result<k256::Scalar> {
 /// The node just above the account index, per network (PROTOCOL §3).
 fn parent_path(network: Network) -> &'static [u32] {
     match network {
-        Network::Bitcoin => &[84, 0, 0, 0],
-        Network::Evm => &[44, 60, 0, 0],
+        Network::Bitcoin => &[PURPOSE, 84, 0, 0, 0],
+        Network::Evm => &[PURPOSE, 44, 60, 0, 0],
     }
 }
 

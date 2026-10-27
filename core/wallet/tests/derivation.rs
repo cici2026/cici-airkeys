@@ -15,9 +15,9 @@ fn wallet(passphrase: &str) -> Wallet {
 fn addresses_match_independent_implementations() {
     let w = wallet("");
     let expect = [
-        (0, "bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td", "0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03"),
-        (1, "bc1qaqw9zun4ysc4etc7pg36xfxgwzppcl6m0vxatg", "0x4B4dE798e77cF830AdCb49Cccb3D75bf2A149327"),
-        (7, "bc1qtl06yprx0gz3daqqqmgrg2mftdpd6q0furkts9", "0x99b93685439306C171F167a876BDC3880ffF7cbf"),
+        (0, "bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3", "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158"),
+        (1, "bc1q3w9xwgw767utv5gv3uz3dh0skq6ymhqhwjvz28", "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8"),
+        (7, "bc1q7367t0ard3dgwaasd2ws8nt75qjjgplrmqywcw", "0x1445Be1AACC22976Eb39F6957b5CA8492dD48e19"),
     ];
     for (i, btc, evm) in expect {
         assert_eq!(w.address(Network::Bitcoin, i).unwrap(), btc);
@@ -28,14 +28,14 @@ fn addresses_match_independent_implementations() {
 #[test]
 fn passphrase_gives_another_wallet() {
     let w = wallet("TREZOR");
-    assert_eq!(w.address(Network::Bitcoin, 0).unwrap(), "bc1qf24jdufxvfc9metp6kp6y7q7hnx7xs6zu54es3");
-    assert_eq!(w.address(Network::Evm, 0).unwrap(), "0xeD9fEfdE5cd2905De816068735350Cf3b111e46a");
+    assert_eq!(w.address(Network::Bitcoin, 0).unwrap(), "bc1qnyydjtsxyx0u2s7tj6ujrqvswvnpr5fhrpj4fw");
+    assert_eq!(w.address(Network::Evm, 0).unwrap(), "0x1930d009d71be5d487211a83E51b5973b90ee69b");
 }
 
 #[test]
 fn paths_are_fully_hardened() {
-    assert_eq!(Network::Bitcoin.path(3), "m/84'/0'/0'/0'/3'");
-    assert_eq!(Network::Evm.path(3), "m/44'/60'/0'/0'/3'");
+    assert_eq!(Network::Bitcoin.path(3), "m/65738275'/84'/0'/0'/0'/3'");
+    assert_eq!(Network::Evm.path(3), "m/65738275'/44'/60'/0'/0'/3'");
     for n in Network::ALL {
         assert!(n.path(0).split('/').skip(1).all(|s| s.ends_with('\'')));
     }
