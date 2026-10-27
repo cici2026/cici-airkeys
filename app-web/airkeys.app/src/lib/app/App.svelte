@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Asset } from '$lib/chains';
 	import type { Account } from '$lib/protocol';
-	import Wallet from '$lib/app/Wallet.svelte';
+	import Home from '$lib/app/Home.svelte';
 	import AccountPage from '$lib/app/AccountPage.svelte';
 	import Send from '$lib/app/Send.svelte';
 	import Connect from '$lib/app/Connect.svelte';
@@ -22,7 +22,7 @@
 		| { name: 'connect' }
 		| { name: 'settings' }
 		| { name: 'account'; account: Account }
-		| { name: 'send'; account: Account; asset: Asset };
+		| { name: 'send'; account: Account; asset: Asset; move?: boolean };
 	let view = $state<View>({ name: 'wallet' });
 	let toast = $state('');
 	const go = (v: View) => ((view = v), scrollTo(0, 0));
@@ -52,7 +52,7 @@
 		<button
 			class:active={view.name === 'wallet'}
 			class="ghost"
-			onclick={() => go({ name: 'wallet' })}>Accounts</button
+			onclick={() => go({ name: 'wallet' })}>Home</button
 		>
 		<button
 			class:active={view.name === 'settings'}
@@ -75,9 +75,11 @@
 		{#if toast}<div class="notice info toast">{toast}</div>{/if}
 	</div>
 	{#if view.name === 'wallet'}
-		<Wallet
+		<Home
 			open={(account) => go({ name: 'account', account })}
+			move={(account, asset) => go({ name: 'send', account, asset, move: true })}
 			connect={() => go({ name: 'connect' })}
+			settings={() => go({ name: 'settings' })}
 		/>
 	{:else if view.name === 'connect'}
 		<Connect
@@ -91,10 +93,17 @@
 			{account}
 			back={() => go({ name: 'wallet' })}
 			send={(asset) => go({ name: 'send', account, asset })}
+			move={(asset) => go({ name: 'send', account, asset, move: true })}
 		/>
 	{:else if view.name === 'send'}
 		{@const account = view.account}
-		<Send {account} asset={view.asset} back={() => go({ name: 'account', account })} />
+		{@const moving = !!view.move}
+		<Send
+			{account}
+			asset={view.asset}
+			move={moving}
+			back={() => go(moving ? { name: 'wallet' } : { name: 'account', account })}
+		/>
 	{/if}
 </main>
 

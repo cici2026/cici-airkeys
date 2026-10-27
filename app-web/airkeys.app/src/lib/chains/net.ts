@@ -148,6 +148,9 @@ export interface SendIntent {
 	holdings: Asset[];
 	/** Fee level, 0 (slow) to 2 (fast). */
 	speed: 0 | 1 | 2;
+	/** Pay no one: move everything on the chain to account `moveRest` (`to`, `amount` and
+	 * `asset`'s amount are not used; `asset` names the chain). */
+	moveAll?: boolean;
 }
 
 export interface Prepared {

@@ -1,0 +1,483 @@
+<script lang="ts">
+	// The home screen: what the wallet holds, worth what; how much of it sits behind keys never
+	// revealed (the bunker) and how much behind keys that have signed (to move, one signing per
+	// chain); every asset across accounts and chains; and, folded, every account.
+	import type { Asset } from '$lib/chains';
+	import type { Account } from '$lib/protocol';
+	import type { Chain, Network } from '$lib/registry';
+	import { store } from '$lib/state.svelte';
+	import { ensure, holdingOf, refresh } from '$lib/holdings.svelte';
+	import { currency, money, prices, refreshPrices, valueOf } from '$lib/prices.svelte';
+	import { sameChain, summarize, type Holder, type ToMove } from '$lib/value';
+	import { formatShort } from '$lib/units';
+	import Badge from '$lib/ui/Badge.svelte';
+	import Coin from '$lib/ui/Coin.svelte';
+	import Exposure from './Exposure.svelte';
+	import Wallet from './Wallet.svelte';
+
+	let {
+		open,
+		move,
+		connect,
+		settings
+	}: {
+		open: (a: Account) => void;
+		move: (a: Account, asset: Asset) => void;
+		connect: () => void;
+		settings: () => void;
+	} = $props();
+
+	const testnet = $derived(!!store.settings.testnet);
+	// Bitcoin has no test network here
+	const order = $derived<Network[]>(testnet ? ['evm'] : ['bitcoin', 'evm']);
+	const accounts = $derived(store.accounts.filter((a) => order.includes(a.network)));
+	$effect(() => ensure(...accounts));
+	$effect(() => {
+		if (!testnet) void refreshPrices();
+	});
+
+	const holders = $derived<Holder[]>(
+		accounts.flatMap((account) => {
+			const h = holdingOf(account);
+			// past the gap of unused Bitcoin accounts: not read, so not counted
+			if (!h || h.skipped) return [];
+			return [
+				{ account, assets: h.assets, exposure: h.exposure, partial: h.loading || !!h.failed.length }
+			];
+		})
+	);
+	const sum = $derived(summarize(holders, valueOf));
+	const reading = $derived(accounts.filter((a) => !holdingOf(a) || holdingOf(a)!.loading).length);
+	// the chains that did not answer, each once: their balances are not in the figures
+	const unreachable = $derived([
+		...new Set(accounts.flatMap((a) => holdingOf(a)?.failed ?? []).map((f) => f.split(':')[0]))
+	]);
+	const priced = $derived(!testnet && prices.rate !== null && Object.keys(prices.usd).length > 0);
+	// never a confidently wrong figure: nothing known yet is a placeholder, not "$0"
+	const known = $derived(priced && (reading < accounts.length || sum.total > 0));
+
+	// where to receive: the lowest account whose key is still hidden
+	const receiveAt = (n: Network) =>
+		accounts
+			.filter((a) => a.network === n && holdingOf(a)?.exposure === 'hidden')
+			.sort((a, b) => a.index - b.index)[0];
+
+	// the asset list: every chain, or one
+	let filter = $state<string | null>(null);
+	const chainLabel = (c: Chain) => (c.chainId === undefined ? 'Bitcoin' : c.name);
+	const chains = $derived([...new Set(sum.lines.map((l) => chainLabel(l.asset.chain)))]);
+	const lines = $derived(
+		filter ? sum.lines.filter((l) => chainLabel(l.asset.chain) === filter) : sum.lines
+	);
+	let opened = $state<string | null>(null);
+
+	/** The chain's own coin, for Send to name the chain by (an account may hold only tokens). */
+	function coinOf(m: ToMove): Asset {
+		return (
+			holdingOf(m.account)?.assets.find((a) => !a.token && sameChain(a.chain, m.chain)) ??
+			m.assets[0]
+		);
+	}
+	const amountText = (a: Asset, amount = a.amount) =>
+		`${formatShort(amount, a.decimals)} ${a.symbol}`;
+	const worth = (v: number | null) => (v === null ? '' : money(v));
+	const place = (a: Account) => `${a.network === 'bitcoin' ? 'Bitcoin' : 'EVM'} #${a.index}`;
+
+	function reload() {
+		void refresh(accounts, true);
+		if (!testnet) void refreshPrices(true);
+	}
+</script>
+
+{#if !store.accounts.length}
+	<Wallet {open} {connect} />
+{:else}
+	<div class="stack">
+		<section class="hero card">
+			<div class="row top">
+				<span class="label grow">Total{priced ? ` · ${currency()}` : ''}</span>
+				<button class="ghost small" onclick={reload} disabled={reading > 0 || prices.loading}
+					>{reading > 0 ? `Reading, ${reading} to go…` : 'Refresh'}</button
+				>
+			</div>
+			{#if testnet}
+				<div class="figure muted">Test coins</div>
+				<p class="small">Coins on test networks have no value, so nothing here is priced.</p>
+			{:else if known}
+				<div class="figure">{money(sum.total)}</div>
+			{:else}
+				<div class="figure skeleton" aria-label="Reading balances"></div>
+			{/if}
+			{#if !testnet && (unreachable.length || sum.unpriced.length || prices.failed.length)}
+				<p class="small">
+					{#if unreachable.length}Not counted: {unreachable.join(', ')} did not answer (<button
+							class="link"
+							onclick={settings}>endpoints</button
+						>).{/if}
+					{#if sum.unpriced.length}No price for {sum.unpriced.join(', ')}: not in the total.{/if}
+					{#if prices.failed.length}Could not read {prices.failed.join('; ')}.{/if}
+				</p>
+			{/if}
+
+			<div class="tiles">
+				<div class="tile bunker">
+					<div class="row tight">
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path
+								d="M9 12l2 2 4-4"
+							/></svg
+						><b>Bunker</b>
+					</div>
+					<div class="amount">{priced ? money(sum.bunker) : sum.bunkerAccounts ? '—' : '0'}</div>
+					<div class="small">
+						{sum.bunkerAccounts} account{sum.bunkerAccounts === 1 ? '' : 's'} holding, keys never revealed
+					</div>
+				</div>
+				<div class="tile" class:exposed={sum.toMove.length > 0}>
+					<div class="row tight">
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></svg
+						><b>Exposed</b>
+					</div>
+					<div class="amount">{priced ? money(sum.exposed) : sum.exposedAccounts ? '—' : '0'}</div>
+					<div class="small">
+						{#if sum.toMove.length}{sum.toMove.length} to move, one signing each{:else}Nothing
+							behind a revealed key{/if}
+					</div>
+				</div>
+			</div>
+
+			<div class="row actions">
+				{#each order as n (n)}
+					{@const at = receiveAt(n)}
+					<button class="primary grow" disabled={!at} onclick={() => at && open(at)}
+						>Receive {n === 'bitcoin' ? 'Bitcoin' : 'on EVM'}</button
+					>
+				{/each}
+			</div>
+			{#if reading === 0 && order.some((n) => accounts.some((a) => a.network === n) && !receiveAt(n))}
+				<p class="small">
+					No {order
+						.filter((n) => accounts.some((a) => a.network === n) && !receiveAt(n))
+						.map((n) => (n === 'bitcoin' ? 'Bitcoin' : 'EVM'))
+						.join(' or ')} account with a hidden key is connected here. On the phone: Connect → All 100
+					accounts, then <button class="link" onclick={connect}>scan it</button>.
+				</p>
+			{/if}
+		</section>
+
+		{#if sum.toMove.length}
+			<section class="stack tight">
+				<div class="label">To move</div>
+				<p class="small">
+					These accounts have signed before, so their public keys are on chain. Move what each holds
+					to an account whose key is still hidden — one signing per chain.
+				</p>
+				{#each sum.toMove as m (m.account.address + chainLabel(m.chain))}
+					<div class="card row move">
+						<Coin asset={coinOf(m)} size={34} />
+						<button class="plain grow" onclick={() => open(m.account)}>
+							<b>{place(m.account)} · {chainLabel(m.chain)}</b>
+							<span class="small line"
+								>{m.assets
+									.slice(0, 3)
+									.map((a) => amountText(a))
+									.join(', ')}{m.assets.length > 3 ? ` +${m.assets.length - 3}` : ''}</span
+							>
+						</button>
+						{#if m.value !== null}<b class="value">{money(m.value)}</b>{/if}
+						<button class="primary" onclick={() => move(m.account, coinOf(m))}>Move</button>
+					</div>
+				{/each}
+			</section>
+		{/if}
+
+		<section class="stack tight">
+			<div class="row">
+				<div class="label grow">Assets</div>
+			</div>
+			{#if chains.length > 1}
+				<div class="chips" role="group" aria-label="Show the assets of">
+					<button
+						class:on={filter === null}
+						aria-pressed={filter === null}
+						onclick={() => (filter = null)}>All</button
+					>
+					{#each chains as c (c)}
+						<button class:on={filter === c} aria-pressed={filter === c} onclick={() => (filter = c)}
+							>{c}</button
+						>
+					{/each}
+				</div>
+			{/if}
+			{#if !lines.length}
+				<div class="card small">
+					{reading
+						? 'Reading balances…'
+						: 'Nothing held yet. Receive at an account above: what it holds appears here.'}
+				</div>
+			{/if}
+			<div class="list card">
+				{#each lines as l (l.key)}
+					<button
+						class="plain asset"
+						aria-expanded={opened === l.key}
+						onclick={() => (opened = opened === l.key ? null : l.key)}
+					>
+						<Coin asset={l.asset} />
+						<span class="grow">
+							<b>{l.asset.symbol}</b>
+							<span class="small line"
+								>{chainLabel(l.asset.chain)} · {l.holders.length} account{l.holders.length === 1
+									? ''
+									: 's'}</span
+							>
+						</span>
+						<span class="right">
+							<b>{l.value !== null ? money(l.value) : amountText(l.asset, l.amount)}</b>
+							{#if l.value !== null}<span class="small line">{amountText(l.asset, l.amount)}</span
+								>{/if}
+						</span>
+					</button>
+					{#if opened === l.key}
+						<div class="holders">
+							{#each l.holders as h (h.account.address)}
+								<button class="plain holder" onclick={() => open(h.account)}>
+									<span class="grow">{place(h.account)}</span>
+									<span class="small"
+										>{amountText(l.asset, h.amount)}{h.value !== null
+											? ` · ${worth(h.value)}`
+											: ''}</span
+									>
+									<Exposure exposure={h.exposure} />
+								</button>
+							{/each}
+						</div>
+					{/if}
+				{/each}
+			</div>
+		</section>
+
+		<details class="accounts">
+			<summary class="label">Accounts · {accounts.length}</summary>
+			<Wallet {open} {connect} />
+		</details>
+	</div>
+{/if}
+
+<style>
+	.hero {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+		padding: 22px;
+		background:
+			radial-gradient(
+				120% 90% at 0% 0%,
+				color-mix(in srgb, var(--lamp) 9%, transparent),
+				transparent 60%
+			),
+			var(--surface);
+	}
+	.top button {
+		padding: 4px 8px;
+	}
+	.figure {
+		font-size: 44px;
+		font-weight: 700;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+	.figure.muted {
+		color: var(--dim);
+		font-size: 32px;
+	}
+	.skeleton {
+		width: 220px;
+		height: 48px;
+		border-radius: 10px;
+		background: linear-gradient(90deg, var(--raised), var(--stroke), var(--raised));
+		background-size: 200% 100%;
+		animation: shimmer 1.4s infinite linear;
+	}
+	@keyframes shimmer {
+		to {
+			background-position: -200% 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.skeleton {
+			animation: none;
+		}
+	}
+	.tiles {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 12px;
+	}
+	.tile {
+		padding: 14px;
+		border-radius: 12px;
+		border: 1px solid var(--stroke);
+		background: var(--raised);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.tile svg {
+		width: 16px;
+		height: 16px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.tile.bunker .row {
+		color: var(--safe);
+	}
+	.tile .row {
+		color: var(--dim);
+	}
+	.tile.exposed {
+		border-color: color-mix(in srgb, var(--warn) 40%, var(--stroke));
+		background: color-mix(in srgb, var(--warn) 7%, var(--raised));
+	}
+	.tile.exposed .row {
+		color: var(--warn);
+	}
+	.tile .amount {
+		font-size: 22px;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.tight {
+		gap: 8px;
+	}
+	.actions button:disabled {
+		opacity: 0.5;
+	}
+	button.plain {
+		appearance: none;
+		background: none;
+		border: 0;
+		padding: 0;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		border-radius: 0;
+	}
+	button.plain.grow {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		min-width: 0;
+		overflow: hidden;
+	}
+	button.plain.grow > * {
+		max-width: 100%;
+	}
+	button.link {
+		appearance: none;
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
+		color: var(--lamp);
+		display: inline;
+	}
+	.line {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.move .value {
+		font-variant-numeric: tabular-nums;
+	}
+	.chips {
+		display: flex;
+		gap: 6px;
+		overflow-x: auto;
+		padding-bottom: 2px;
+		scrollbar-width: none;
+	}
+	.chips button {
+		padding: 6px 12px;
+		border-radius: 999px;
+		font-size: 13px;
+		white-space: nowrap;
+		color: var(--dim);
+	}
+	.chips button.on {
+		color: var(--text);
+		border-color: var(--lamp);
+		background: color-mix(in srgb, var(--lamp) 10%, var(--raised));
+	}
+	.list {
+		padding: 4px 0;
+	}
+	.list:empty {
+		display: none;
+	}
+	button.plain.asset {
+		width: 100%;
+		padding: 12px 18px;
+	}
+	.asset + .asset,
+	.holders + .asset {
+		border-top: 1px solid var(--stroke);
+	}
+	.asset:hover,
+	.holder:hover {
+		background: color-mix(in srgb, var(--text) 3%, transparent);
+		filter: none;
+	}
+	.asset .grow {
+		min-width: 0;
+	}
+	.right {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+	.holders {
+		padding: 0 18px 10px 66px;
+		display: flex;
+		flex-direction: column;
+	}
+	button.plain.holder {
+		width: 100%;
+		padding: 8px 0;
+		gap: 10px;
+	}
+	.holder + .holder {
+		border-top: 1px dashed var(--stroke);
+	}
+	.accounts summary {
+		cursor: pointer;
+		padding: 6px 0 14px;
+	}
+	@media (max-width: 560px) {
+		.figure {
+			font-size: 36px;
+		}
+		.tiles {
+			grid-template-columns: 1fr;
+		}
+		.actions {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.holders {
+			padding-left: 18px;
+		}
+		.move {
+			flex-wrap: wrap;
+		}
+	}
+</style>

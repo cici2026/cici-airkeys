@@ -231,7 +231,7 @@ await shot('w1-empty');
 try {
 	// 1 · connect: the fake webcam shows the phone's accounts code
 	await click('Scan phone');
-	await until('accounts scanned', async () => /account #0/i.test(await text()));
+	await until('accounts scanned', async () => /Bunker/.test(await text()));
 	check(true, "the web app read the accounts from the phone's code through the camera");
 	const stored = JSON.parse(await js(`localStorage.getItem('airkeys.v1')`));
 	check(
@@ -243,7 +243,7 @@ try {
 
 	// 2 · send 100 USDC from the EVM account, the rest moving to account #1
 	await js(
-		`[...document.querySelectorAll('button.account')].find((b) => b.innerText.includes('Ethereum & EVM')).click()`
+		`document.querySelector('details.accounts').open = true; [...document.querySelectorAll('button.account')].find((b) => b.innerText.includes('Ethereum & EVM')).click()`
 	);
 	await until('balances', async () => (await text()).includes('1,000 USDC'), 60000);
 	check(true, 'balances come from the fork: 1,000 USDC and 10 ETH');

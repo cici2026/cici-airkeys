@@ -160,9 +160,11 @@ const tokenRef = (t: Token) => ({ address: t.address, symbol: t.symbol, decimals
 export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
 	const from = i.from.address;
-	const to = parseEvm(i.to);
+	if (i.moveAll && i.moveRest === null)
+		throw new Error('Moving everything needs an account to go to.');
+	const to = i.moveAll ? '' : parseEvm(i.to);
 	// the phone refuses it too: coins sent back would sit behind the key this send reveals
-	if (to.toLowerCase() === from.toLowerCase())
+	if (!i.moveAll && to.toLowerCase() === from.toLowerCase())
 		throw new Error(
 			'Send to another address: coins sent back to this one would sit behind a revealed key.'
 		);
@@ -202,8 +204,10 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 	const moving =
 		i.moveRest === null
 			? []
-			: i.holdings.filter((a) => a.token && a.amount > 0n && a.key !== i.asset.key);
-	if (i.asset.token) {
+			: i.holdings.filter((a) => a.token && a.amount > 0n && (i.moveAll || a.key !== i.asset.key));
+	if (i.moveAll) {
+		// nothing is paid: every token, then the coin, moves below
+	} else if (i.asset.token) {
 		const amount = i.amount ?? i.asset.amount;
 		if (amount <= 0n || amount > i.asset.amount)
 			throw new Error(
@@ -251,6 +255,7 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 				`Move ${formatUnits(left, chain.decimals)} ${chain.symbol} to your account #${i.moveRest}`
 			);
 	}
+	if (!txs.length) throw new Error('Nothing to move: the balance does not cover a network fee.');
 	if (room() < 0n)
 		throw new Error(
 			`The fees need up to ${formatUnits(fees, chain.decimals)} ${chain.symbol}; the account holds ${formatUnits(balance, chain.decimals)}.`

@@ -4,6 +4,7 @@
 	import { registry, type Chain, type Token } from '$lib/registry';
 	import { save, store } from '$lib/state.svelte';
 	import { isHttpUrl, rpc } from '$lib/chains/net';
+	import { DEFAULT_FX, loadCurrencies, prices, refreshPrices } from '$lib/prices.svelte';
 	import {
 		CHAIN_DATA,
 		chainDetails,
@@ -14,6 +15,36 @@
 	} from '$lib/chainData';
 
 	let problem = $state('');
+	let fxProblem = $state('');
+	let fxText = $state(store.settings.fx ?? '');
+
+	async function currencies() {
+		fxProblem = '';
+		try {
+			await loadCurrencies();
+		} catch (e) {
+			fxProblem = `The currencies did not load: ${(e as Error).message}. Totals stay in US dollars.`;
+		}
+	}
+	function setCurrency(code: string) {
+		if (code === 'USD') delete store.settings.currency;
+		else store.settings.currency = code;
+		save();
+		void refreshPrices(true);
+	}
+	function setFx() {
+		const url = fxText.trim();
+		if (url && !isHttpUrl(url)) {
+			fxProblem = 'Enter a web address: http://… or https://…';
+			return;
+		}
+		fxProblem = '';
+		if (url) store.settings.fx = url;
+		else delete store.settings.fx;
+		save();
+		prices.currencies = ['USD'];
+		void refreshPrices(true);
+	}
 	let added = $state('');
 	/** Endpoint rows open for editing, and what is wrong with what was typed in each. */
 	let editing = $state<Record<string, boolean>>({});
@@ -274,6 +305,33 @@
 		</p>
 	</section>
 	<section class="card stack">
+		<div class="label">Prices</div>
+		<label class="row">
+			<span class="grow">Show totals in</span>
+			<select
+				class="currency"
+				value={store.settings.currency ?? 'USD'}
+				onfocus={currencies}
+				onchange={(e) => setCurrency(e.currentTarget.value)}
+			>
+				{#each prices.currencies.includes(store.settings.currency ?? 'USD') ? prices.currencies : [store.settings.currency ?? 'USD', ...prices.currencies] as c (c)}
+					<option value={c}>{c}</option>
+				{/each}
+			</select>
+		</label>
+		<p class="small">
+			Coins and tokens are valued by Chainlink price feeds, read through the Ethereum and BNB Smart
+			Chain endpoints above; only what Airkeys lists is priced. Other currencies are converted with
+			the rates of <span class="mono">{new URL(store.settings.fx || DEFAULT_FX).host}</span>.
+			Neither carries an address.
+		</p>
+		<label class="stack tight">
+			<span class="small">Exchange-rate endpoint (rates from USD)</span>
+			<input bind:value={fxText} onchange={setFx} placeholder={DEFAULT_FX} spellcheck="false" />
+		</label>
+		{#if fxProblem}<div class="notice warn small" role="status">{fxProblem}</div>{/if}
+	</section>
+	<section class="card stack">
 		<div class="label">This browser</div>
 		<p class="small">
 			The web app keeps only addresses and these settings, in this browser. It never sees a key.
@@ -297,6 +355,13 @@
 </div>
 
 <style>
+	.currency {
+		width: auto;
+		min-width: 110px;
+	}
+	.tight {
+		gap: 6px;
+	}
 	.narrow {
 		max-width: 680px;
 	}

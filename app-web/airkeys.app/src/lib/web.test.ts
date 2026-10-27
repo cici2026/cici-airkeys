@@ -11,6 +11,7 @@ import type { Asset, SendIntent } from './chains/net';
 import { registry } from './registry';
 import { formatShort, formatUnits, parseUnits } from './units';
 import { parseMessage, encode } from './protocol';
+import { elsewhere, priceKey, readRound, summarize, STALE_SECONDS, type Holder } from './value';
 
 describe('addresses agree with the core', () => {
 	it('Bitcoin', () => {
@@ -58,7 +59,7 @@ describe('messages from the phone', () => {
 	const accounts = {
 		airkeys: 1,
 		type: 'accounts',
-		accounts: [{ network: 'evm', index: 0, address: '0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03' }]
+		accounts: [{ network: 'evm', index: 0, address: '0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158' }]
 	};
 	it('reads accounts and signed replies', () => {
 		const m = parseMessage(encode(accounts));
@@ -89,7 +90,7 @@ describe('messages from the phone', () => {
 				reply({
 					txs: [tx],
 					accounts: [
-						{ network: 'bitcoin', index: 1, address: 'bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td' }
+						{ network: 'bitcoin', index: 1, address: 'bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3' }
 					]
 				})
 			)
@@ -115,12 +116,12 @@ describe('messages from the phone', () => {
 const BTC_FROM = {
 	network: 'bitcoin' as const,
 	index: 0,
-	address: 'bc1q8d2x9494zdyx6ka8pp4p94xe8jpsef77pzl7td'
+	address: 'bc1qvuapkt7kdu4vnrfttvzmszuj8cfdnedsch0hy3'
 };
 const EVM_FROM = {
 	network: 'evm' as const,
 	index: 0,
-	address: '0xcf6335E1C68B1F7C9D8Aa84c647FFcd9595f0b03'
+	address: '0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158'
 };
 const STRANGER_BTC = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 const STRANGER_EVM = '0x8617E340B3D01FA5F11F306F4090FD50E238070D';
@@ -217,8 +218,8 @@ describe('transfer requests', () => {
 		for (const to of [
 			BTC_FROM.address,
 			BTC_FROM.address.toUpperCase(),
-			'16QhxZieffmTnDyWuuwUHKyNNLJVMEsc2B',
-			'3MSMHpABUecKruawy8Swa9cAfWkVW5Tn3w'
+			'1AQpD3nTnF5QfveyjU3i3q8VM5fxvnFA16',
+			'3EWQsUR11qUMBz12boarGEbRckawjc9ayL'
 		])
 			await expect(
 				bitcoin.prepare(intent({ from: BTC_FROM, asset: sats(100_000n), to })),
@@ -358,5 +359,148 @@ describe('transfer requests', () => {
 		await expect(
 			bitcoin.prepare(intent({ from: BTC_FROM, asset: sats(201_000n), to: STRANGER_BTC }))
 		).rejects.toThrow(/201 coins/);
+	});
+});
+
+describe('moving everything', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('EVM: every token, then the coin less every fee, to the fresh account; no one paid', async () => {
+		evmNode();
+		const balance = 10n ** 18n;
+		const holdings = [coin(balance), token(USDC, 1000_000000n), token(DAI, 0n)];
+		const { request, summary } = await evm.prepare(
+			intent({ from: EVM_FROM, asset: holdings[0], to: '', moveRest: 3, moveAll: true, holdings })
+		);
+		const txs = request.txs as Tx[];
+		expect(txs.map((t) => [t.to, t.amount, t.nonce])).toEqual([
+			[{ index: 3 }, '1000000000', 7],
+			[{ index: 3 }, txs[1].amount, 8]
+		]);
+		expect(summary[0]).toBe('Move 1,000 USDC to your account #3');
+		const fees = txs.reduce((s, t) => s + BigInt(t.gas) * MAX_FEE, 0n);
+		expect(BigInt(txs[1].amount) + fees).toBe(balance);
+	});
+
+	it('EVM: refuses when the coin cannot pay a fee, or there is no account to go to', async () => {
+		evmNode();
+		await expect(
+			evm.prepare(
+				intent({ from: EVM_FROM, asset: coin(1000n), to: '', moveRest: 1, moveAll: true })
+			)
+		).rejects.toThrow(/Nothing to move/);
+		await expect(
+			evm.prepare(intent({ from: EVM_FROM, asset: coin(10n ** 18n), to: '', moveAll: true }))
+		).rejects.toThrow(/an account to go to/);
+	});
+
+	it('Bitcoin: every coin, less the fee, to the fresh account', async () => {
+		esploraNode([60_000, 40_000]);
+		const { request, summary } = await bitcoin.prepare(
+			intent({ from: BTC_FROM, asset: sats(100_000n), to: '', moveRest: 2, moveAll: true })
+		);
+		// two inputs, one P2WPKH output: 178 vB at 10 sat/vB
+		expect(request.outputs).toEqual([
+			{ to: { index: 2 }, amount: String(100_000 - 10 * bitcoin.vsize(2, [31])) }
+		]);
+		expect(summary[0]).toMatch(/^Move 0\.000\d+ BTC to your account #2$/);
+	});
+});
+
+describe('values', () => {
+	const base = registry.evm.find((c) => c.chainId === 8453)!;
+	const sepolia = registry.evm.find((c) => c.testnet)!;
+	const on = (chain: typeof eth, t?: (typeof eth.tokens)[number], amount = 1n): Asset => ({
+		key: `${chain.chainId}:${t?.address ?? 'native'}`,
+		chain,
+		...(t ? { token: t } : {}),
+		symbol: t?.symbol ?? chain.symbol,
+		decimals: t?.decimals ?? chain.decimals,
+		amount
+	});
+
+	it('price only what Airkeys lists', () => {
+		expect(priceKey(on(eth))).toBe('ETH');
+		expect(priceKey(on(base))).toBe('ETH');
+		expect(priceKey(sats(1n))).toBe('BTC');
+		expect(priceKey(on(eth, USDC))).toBe('USDC');
+		expect(
+			priceKey(
+				on(
+					eth,
+					eth.tokens.find((t) => t.symbol === 'WBTC')
+				)
+			)
+		).toBe('BTC');
+		// a token at another address that calls itself USDC, a test network, a chain added by hand
+		expect(priceKey(on(eth, { ...USDC, address: STRANGER_EVM }))).toBeNull();
+		expect(priceKey(on(sepolia))).toBeNull();
+		expect(priceKey(on({ ...eth, chainId: 59144, name: 'Linea' }))).toBeNull();
+	});
+
+	it('read a feed answer, refusing stale or non-positive prices', () => {
+		const w = (n: bigint) => BigInt.asUintN(256, n).toString(16).padStart(64, '0');
+		const round = (answer: bigint, updated: number) =>
+			'0x' + w(1n) + w(answer) + w(0n) + w(BigInt(updated)) + w(1n);
+		const now = 1_800_000_000;
+		expect(readRound(round(232_468_418_576n, now - 60), now)).toBeCloseTo(2324.68418576);
+		expect(readRound(round(1n, now - STALE_SECONDS - 1), now)).toBeNull();
+		expect(readRound(round(-5n, now), now)).toBeNull();
+		expect(readRound(round(0n, now), now)).toBeNull();
+		expect(readRound('0x', now)).toBeNull();
+		expect(readRound(null, now)).toBeNull();
+	});
+
+	it('sum what sits behind hidden and exposed keys, and list what should move', () => {
+		const a = (index: number) => ({ network: 'evm' as const, index, address: `0x${index}` });
+		const holders: Holder[] = [
+			{
+				account: a(0),
+				exposure: 'exposed',
+				partial: false,
+				assets: [
+					on(eth, undefined, 10n ** 18n),
+					on(
+						base,
+						base.tokens.find((t) => t.symbol === 'USDC'),
+						5_000000n
+					)
+				]
+			},
+			{
+				account: a(1),
+				exposure: 'hidden',
+				partial: false,
+				assets: [on(eth, USDC, 100_000000n), on(eth, undefined, 0n)]
+			},
+			{
+				account: a(2),
+				exposure: 'unknown',
+				partial: true,
+				assets: [on(eth, { ...USDC, address: STRANGER_EVM, symbol: 'FAKE' }, 9n)]
+			}
+		];
+		const price: Record<string, number> = { ETH: 2000, USDC: 1 };
+		const valueOf = (x: Asset) => {
+			const k = priceKey(x);
+			return k && price[k] !== undefined ? (Number(x.amount) / 10 ** x.decimals) * price[k] : null;
+		};
+		const s = summarize(holders, valueOf);
+		expect([s.total, s.bunker, s.exposed, s.unknown]).toEqual([2105, 100, 2005, 0]);
+		expect([s.bunkerAccounts, s.exposedAccounts]).toEqual([1, 1]);
+		expect(s.unpriced).toEqual(['FAKE']);
+		// by worth; one line per asset and chain, across accounts; the unpriced last
+		expect(s.lines.map((l) => [l.asset.symbol, l.asset.chain.name, l.value])).toEqual([
+			['ETH', 'Ethereum', 2000],
+			['USDC', 'Ethereum', 100],
+			['USDC', 'Base', 5],
+			['FAKE', 'Ethereum', null]
+		]);
+		// the exposed account: one entry per chain it holds something on
+		expect(s.toMove.map((m) => [m.account.index, m.chain.name, m.value])).toEqual([
+			[0, 'Ethereum', 2000],
+			[0, 'Base', 5]
+		]);
+		expect(elsewhere(holders[0].assets, eth).map((e) => e.chain.name)).toEqual(['Base']);
 	});
 });

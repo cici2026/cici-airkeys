@@ -11,8 +11,17 @@
 	import Qr from '$lib/ui/Qr.svelte';
 	import Exposure from './Exposure.svelte';
 
-	let { account, send, back }: { account: Account; send: (a: Asset) => void; back: () => void } =
-		$props();
+	let {
+		account,
+		send,
+		move,
+		back
+	}: {
+		account: Account;
+		send: (a: Asset) => void;
+		move: (a: Asset) => void;
+		back: () => void;
+	} = $props();
 	const h = $derived(holdingOf(account));
 	// none on a network without a chain in this mode, or with an explorer that is not a web page
 	const explorer = $derived(
@@ -46,7 +55,7 @@
 
 <div class="stack">
 	<div class="row">
-		<button class="ghost" onclick={back}>← Accounts</button>
+		<button class="ghost" onclick={back}>← Home</button>
 		<div class="grow"></div>
 		<button class="ghost" onclick={() => refresh([account])} disabled={h?.loading}
 			>{h?.loading ? 'Refreshing…' : 'Refresh'}</button
@@ -78,8 +87,8 @@
 
 	{#if h?.exposure === 'exposed'}
 		<div class="notice warn">
-			This address has sent before, so its public key is on chain. Move what it holds to a fresh
-			account: send it all with “Move the rest to a fresh account”.
+			This address has sent before, so its public key is on chain. Move what it holds to an account
+			whose key is still hidden — <b>Move all</b> below, one signing per chain.
 		</div>
 	{:else if h?.exposure === 'hidden'}
 		<div class="notice info">
@@ -90,7 +99,21 @@
 
 	{#each chains as c (c)}
 		<section class="stack">
-			{#if account.network === 'evm'}<div class="label">{c}</div>{/if}
+			{#if account.network === 'evm' || h?.exposure === 'exposed'}
+				<div class="row">
+					<div class="label grow">{account.network === 'evm' ? c : ''}</div>
+					{#if h?.exposure === 'exposed'}
+						<button
+							class="small"
+							onclick={() =>
+								move(
+									shown.find((a) => a.chain.name === c && !a.token) ??
+										shown.find((a) => a.chain.name === c)!
+								)}>Move all</button
+						>
+					{/if}
+				</div>
+			{/if}
 			{#each shown.filter((a) => a.chain.name === c) as a (a.key)}
 				<div class="asset card row">
 					<div class="grow">

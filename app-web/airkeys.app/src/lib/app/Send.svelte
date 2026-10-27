@@ -7,13 +7,20 @@
 	import { addAccounts, store } from '$lib/state.svelte';
 	import { ensure, freshIndex, holdingOf, refresh } from '$lib/holdings.svelte';
 	import { parseAddress } from '$lib/addresses';
-	import { formatUnits, parseUnits } from '$lib/units';
+	import { formatShort, formatUnits, parseUnits } from '$lib/units';
+	import { elsewhere } from '$lib/value';
+	import { money, valueOf } from '$lib/prices.svelte';
 	import CodeCanvas from '$lib/lumen/CodeCanvas.svelte';
 	import Json from '$lib/ui/Json.svelte';
 	import CameraScan from '$lib/lumen/CameraScan.svelte';
 	import { onDestroy } from 'svelte';
 
-	let { account, asset, back }: { account: Account; asset: Asset; back: () => void } = $props();
+	let {
+		account,
+		asset,
+		back,
+		move = false
+	}: { account: Account; asset: Asset; back: () => void; move?: boolean } = $props();
 
 	type Step = 'form' | 'review' | 'request' | 'reply' | 'done';
 	let step = $state<Step>('form');
@@ -49,8 +56,32 @@
 		)
 	);
 
+	// a first send on one EVM chain reveals the key on every EVM chain: what else is at stake
+	const others = $derived(
+		account.network === 'evm' && !move && exposure === 'hidden'
+			? elsewhere(holdingOf(account)?.assets ?? [], asset.chain)
+			: []
+	);
+	const list = (assets: Asset[]) =>
+		assets.map((a) => `${formatShort(a.amount, a.decimals)} ${a.symbol}`).join(', ');
+	/** "Base (≈ $30,512), Polygon (≈ $3,401), Arbitrum One (≈ $1,540) and 3 more chains":
+	 * the costliest first; a chain without prices is named with what it holds. */
+	const atStake = $derived.by(() => {
+		const rows = others
+			.map((o) => {
+				const vs = o.assets.map(valueOf);
+				const v = vs.every((x) => x === null) ? null : vs.reduce<number>((t, x) => t + (x ?? 0), 0);
+				return { name: o.chain.name, v, text: v === null ? list(o.assets) : `≈ ${money(v)}` };
+			})
+			.sort((a, b) => (b.v ?? -1) - (a.v ?? -1));
+		const shown = rows.slice(0, 3).map((r) => `${r.name} (${r.text})`);
+		const more = rows.length - shown.length;
+		return shown.join(', ') + (more ? ` and ${more} more chain${more > 1 ? 's' : ''}` : '');
+	});
+
 	async function review() {
 		problem = '';
+		if (move) return reviewMove();
 		try {
 			const recipient = parseAddress(account.network, to);
 			const amount = max ? null : parseUnits(amountText, asset.decimals);
@@ -70,6 +101,34 @@
 				to: recipient,
 				amount,
 				moveRest: moveRest ? fresh : null,
+				holdings,
+				speed
+			});
+			step = 'review';
+		} catch (e) {
+			problem = (e as Error).message;
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function reviewMove() {
+		try {
+			if (fresh === null)
+				throw new Error(
+					'Airkeys has not seen an unused account to move to. On the phone, Connect → All 100 accounts, then scan it here.'
+				);
+			if (!isIndex(fresh))
+				throw new Error('An account number is a whole number from 0 to 2147483647.');
+			if (fresh === account.index) throw new Error('Move to another account number.');
+			busy = true;
+			prepared = await prepare(account.network, {
+				from: account,
+				asset,
+				to: '',
+				amount: null,
+				moveRest: fresh,
+				moveAll: true,
 				holdings,
 				speed
 			});
@@ -130,38 +189,72 @@
 
 <div class="stack narrow">
 	<div class="row">
-		<button class="ghost" onclick={back}>← {NETWORK_NAMES[account.network]} #{account.index}</button
+		<button class="ghost" onclick={back}
+			>← {move ? 'Home' : `${NETWORK_NAMES[account.network]} #${account.index}`}</button
 		>
 	</div>
-	<h2>Send {asset.symbol}{account.network === 'evm' ? ` on ${asset.chain.name}` : ''}</h2>
+	{#if move}
+		<h2>
+			Move everything{account.network === 'evm' ? ` on ${asset.chain.name}` : ''}
+			<span class="dim">from #{account.index}</span>
+		</h2>
+	{:else}
+		<h2>Send {asset.symbol}{account.network === 'evm' ? ` on ${asset.chain.name}` : ''}</h2>
+	{/if}
 
 	{#if step === 'form'}
 		<div class="card stack">
-			<label class="stack tight">
-				<span class="label">To</span>
-				<input
-					bind:value={to}
-					placeholder={account.network === 'evm' ? '0x…' : 'Address'}
-					autocomplete="off"
-					spellcheck="false"
-				/>
-			</label>
-			<label class="stack tight">
-				<span class="label">Amount</span>
-				<div class="row">
-					<input
-						class="grow"
-						bind:value={amountText}
-						placeholder="0.0"
-						inputmode="decimal"
-						disabled={max}
-					/>
-					<button class:primary={max} aria-pressed={max} onclick={() => (max = !max)}>Max</button>
+			{#if move}
+				<div class="stack tight">
+					<span class="label">What moves</span>
+					<p>{list(holdings.filter((a) => a.amount > 0n)) || 'Nothing on this chain.'}</p>
+					<span class="small"
+						>{account.network === 'evm'
+							? `Every token, then the ${asset.chain.symbol} left after the network fees.`
+							: 'Every coin, less the network fee.'}</span
+					>
 				</div>
-				<span class="small"
-					>Available: {formatUnits(asset.amount, asset.decimals)} {asset.symbol}</span
-				>
-			</label>
+				<label class="stack tight">
+					<span class="label">To</span>
+					<span
+						>Your account #<input
+							class="index"
+							type="number"
+							min="0"
+							value={fresh ?? ''}
+							oninput={(e) =>
+								(typed = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
+							aria-label="Account to move to"
+						/>, whose key is still hidden. The phone derives its address itself.</span
+					>
+				</label>
+			{:else}
+				<label class="stack tight">
+					<span class="label">To</span>
+					<input
+						bind:value={to}
+						placeholder={account.network === 'evm' ? '0x…' : 'Address'}
+						autocomplete="off"
+						spellcheck="false"
+					/>
+				</label>
+				<label class="stack tight">
+					<span class="label">Amount</span>
+					<div class="row">
+						<input
+							class="grow"
+							bind:value={amountText}
+							placeholder="0.0"
+							inputmode="decimal"
+							disabled={max}
+						/>
+						<button class:primary={max} aria-pressed={max} onclick={() => (max = !max)}>Max</button>
+					</div>
+					<span class="small"
+						>Available: {formatUnits(asset.amount, asset.decimals)} {asset.symbol}</span
+					>
+				</label>
+			{/if}
 			<div class="stack tight">
 				<span class="label" id="fee-label">Network fee</span>
 				<div class="row speeds" role="group" aria-labelledby="fee-label">
@@ -174,7 +267,9 @@
 					{/each}
 				</div>
 			</div>
-			{#if account.network === 'bitcoin'}
+			{#if move}
+				<!-- nothing to choose: everything moves -->
+			{:else if account.network === 'bitcoin'}
 				<div class="stack tight">
 					<span class="label">Change</span>
 					<p class="small">
@@ -226,7 +321,11 @@
 					</label>
 				</fieldset>
 			{/if}
-			{#if exposure === 'exposed'}<div class="notice warn small">
+			{#if others.length}<div class="notice warn small">
+					This send reveals this account's key on every EVM chain — and it holds more on {atStake}.
+					After this send, Home lists them under <b>To move</b>: one signing per chain.
+				</div>{/if}
+			{#if exposure === 'exposed' && !move}<div class="notice warn small">
 					This account's key is already exposed. Moving everything to a fresh account is the safe
 					choice.
 				</div>{/if}

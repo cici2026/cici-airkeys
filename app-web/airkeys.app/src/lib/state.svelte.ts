@@ -13,6 +13,10 @@ export interface Settings {
 	/** Show test networks instead of the real ones: their coins have no value, and the two are
 	 * never shown together. */
 	testnet?: boolean;
+	/** The currency totals are shown in, ISO 4217 ("USD" when absent). */
+	currency?: string;
+	/** Where rates from the US dollar come from (Vela's exchange-rate service when absent). */
+	fx?: string;
 }
 
 const KEY = 'airkeys.v1';
@@ -79,7 +83,11 @@ function load(): { accounts: Account[]; settings: Settings } {
 				chains: (Array.isArray(s.chains) ? s.chains : [])
 					.map(storedChain)
 					.filter((c): c is Chain => !!c),
-				...(typeof s.testnet === 'boolean' ? { testnet: s.testnet } : {})
+				...(typeof s.testnet === 'boolean' ? { testnet: s.testnet } : {}),
+				...(typeof s.currency === 'string' && /^[A-Z]{3}$/.test(s.currency)
+					? { currency: s.currency }
+					: {}),
+				...(typeof s.fx === 'string' && isHttpUrl(s.fx) ? { fx: s.fx } : {})
 			}
 		};
 	} catch {

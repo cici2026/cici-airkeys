@@ -128,9 +128,12 @@ export function vsize(inputs: number, outputs: number[]): number {
 
 export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
-	const recipient = parseBitcoin(i.to);
+	if (i.moveAll && i.moveRest === null)
+		throw new Error('Moving everything needs an account to go to.');
+	// moving everything pays no one: the one output is the fresh account's
+	const recipient = i.moveAll ? null : parseBitcoin(i.to);
 	// the phone refuses it too, in any spelling of the same key
-	if (paysSameKey(i.from.address, i.to))
+	if (!i.moveAll && paysSameKey(i.from.address, i.to))
 		throw new Error(
 			'Send to another address: coins sent back to this one would sit behind a revealed key.'
 		);
@@ -164,11 +167,12 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 	const rate = BigInt(rates[i.speed]);
 	const feeFor = (outputs: number[]) => rate * BigInt(vsize(inputs.length, outputs));
 	const change = BTC_OUTPUT_BYTES.p2wpkh;
-	const pay = BTC_OUTPUT_BYTES[recipient.kind];
+	const pay = recipient ? BTC_OUTPUT_BYTES[recipient.kind] : change;
+	const kind = recipient?.kind ?? 'p2wpkh';
 
 	let amount: bigint;
 	let rest = 0n;
-	if (i.amount === null) {
+	if (i.moveAll || i.amount === null) {
 		amount = total - feeFor([pay]);
 	} else {
 		amount = i.amount;
@@ -183,16 +187,20 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		}
 	}
 	const fee = total - amount - rest;
-	if (amount < BigInt(BTC_DUST[recipient.kind]))
-		throw new Error(
-			`The amount is below the network's dust limit of ${BTC_DUST[recipient.kind]} sat.`
-		);
+	if (amount < BigInt(BTC_DUST[kind]))
+		throw new Error(`The amount is below the network's dust limit of ${BTC_DUST[kind]} sat.`);
 	if (fee <= 0n || amount + fee > total)
 		throw new Error(`The account holds ${coins(total)}: too little for this amount and its fee.`);
 	if (rest > 0n && i.moveRest === null) throw new Error('The change needs an account to go to.');
 
-	const outputs: Record<string, unknown>[] = [{ to: { address: i.to }, amount: amount.toString() }];
-	const summary = [`Send ${coins(amount)} to ${i.to}`];
+	const outputs: Record<string, unknown>[] = [
+		{ to: i.moveAll ? own(i.moveRest!) : { address: i.to }, amount: amount.toString() }
+	];
+	const summary = [
+		i.moveAll
+			? `Move ${coins(amount)} to your account #${i.moveRest}`
+			: `Send ${coins(amount)} to ${i.to}`
+	];
 	if (rest > 0n) {
 		outputs.push({ to: own(i.moveRest!), amount: rest.toString() });
 		summary.push(`Move the change, ${coins(rest)}, to your account #${i.moveRest}`);

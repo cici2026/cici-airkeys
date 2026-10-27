@@ -80,6 +80,13 @@ Sending reveals the key of the account that sends. So:
   used. Accounts named by number (`{ "index": 1 }`) are derived by the phone itself, so the web
   app cannot redirect "your account #1".
 - What remains: EVM gas that is reserved but not used is refunded to the old account (dust).
+- **Other EVM chains are told, not swept.** One address serves every EVM chain, so a first send
+  on one reveals the key on all of them. A request covers one chain, and moving every chain in
+  one signing would be a long, strange request; so before a first send the web app says what
+  else the account holds and where ("it holds more on Base (≈ $1,240) and 2 more chains"), and
+  afterwards Home lists each chain under **To move**. Moving one is a request that pays no one:
+  every token, then the coin less the fees, to a fresh account (`moveAll`; on Bitcoin, every
+  coin to one output).
 
 ### Bitcoin inputs prove their amounts
 Each input carries its whole previous transaction; the phone checks its txid, the amount and
@@ -204,6 +211,24 @@ reduces it.
 
 The fresh account a send moves the rest to is the lowest connected account the web app has
 read and seen never used — never one it has not seen.
+
+### Home: what is held, and what should move
+The web app is an asset panel: it opens on a total, split into **Bunker** (held behind keys
+never revealed) and **Exposed** (held behind keys that have signed — each chain of each such
+account listed under To move, with its Move button). Below, every asset across accounts and
+chains, by worth, filterable by chain; each opens to the accounts that hold it. The accounts
+themselves fold away under the list. As in Vela, a figure is never confidently wrong: nothing
+read yet is a placeholder, not "$0"; a chain that did not answer is named, its balances not
+counted; an asset without a price is named, not counted.
+
+### Prices
+Chainlink price feeds, read through the chains' own endpoints from Settings: ETH, BTC, USDC,
+USDT, DAI, POL and AVAX on Ethereum, BNB on BNB Smart Chain. An answer older than a day is no
+price. Only what Airkeys lists is priced — a listed mainnet's coin, a token at a listed
+address (WETH and WBTC as their coins) — so a token that calls itself "USDC", or a chain added
+by hand that calls its coin "ETH", is shown with no value. Another display currency is
+converted with Vela's exchange-rate service (`vela-currency.getvela.app`, rates from USD; the
+endpoint is a setting). Neither request carries an address. Test networks are never priced.
 
 ### Mainnet and testnet, never mixed
 A switch in the web app shows either the real networks or the test networks (Sepolia, and any
