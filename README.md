@@ -4,8 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Protocol v1](https://img.shields.io/badge/protocol-v1-orange.svg)](docs/PROTOCOL.md)
 
-A cold wallet for a phone that stays offline. It shows the world **addresses — never a
-public key** — so the funds behind them stay out of reach, even of a quantum computer.
+A cold wallet for a phone that stays offline. It gives the online world addresses, never public
+keys, so an account's key stays unknown until the account spends.
 
 > [!WARNING]
 > Airkeys is young (0.x) and has had no third-party audit. Try it with small amounts first,
@@ -15,27 +15,26 @@ public key** — so the funds behind them stay out of reach, even of a quantum c
 ![The phone app: welcome, accounts, reviewing a transfer, the code for the web app, and what it says](docs/img/phone.jpg)
 
 - **Phone apps** (Android, iOS) hold your recovery phrase in memory only, refuse to run while
-  any radio is on, and sign transfers only, after showing every recipient, amount and fee.
-- **Web app** (a static site, also a browser extension) reads balances, prepares transfers and
-  broadcasts them. It only ever holds addresses.
-- They talk through animated codes ([Lumen Code](https://github.com/atshelchin/lumen-code)):
-  one screen shows, the other camera reads. Every message is readable JSON
+  any radio is on, and sign only transfers, after showing every recipient, amount and fee.
+- **Web app** (a static site, also a browser extension) reads balances, prepares transfers for
+  the phone to sign and broadcasts them. It holds addresses only: it never sees or creates a
+  recovery phrase and cannot sign.
+- The two talk through animated codes ([Lumen Code](https://github.com/atshelchin/lumen-code))
+  that one screen shows and the other's camera reads. Every message is readable JSON
   ([protocol](docs/PROTOCOL.md)).
 
 Networks: **Bitcoin** (BTC) and **Ethereum and EVM chains** (ETH and ERC-20 tokens on
 Ethereum, Base, Arbitrum, OP, Polygon, BNB, Avalanche, Sepolia, and any chain you add).
 
-![The web app: an account's balances, and a transfer request shown to the phone](docs/img/web.jpg)
+![The web app: the total, split into Bunker and Exposed, and a transfer request shown to the phone](docs/img/web.jpg)
 
 ## Why
 
-A quantum computer that breaks elliptic curves recovers a private key from its public key.
-Bitcoin and Ethereum addresses are hashes of public keys: an address that has never sent
-keeps its key unknown. But every mainstream way of connecting a hardware wallet hands the
-computer public keys — Ledger with every address, MetaMask by taking Trezor's extended key,
-QR wallets by syncing extended keys. Airkeys sends addresses only, derives every account on
-a fully hardened path, and when you spend, moves what stays behind to a fresh account in the
-same signing. → [Design](docs/DESIGN.md)
+A quantum computer that breaks elliptic curves can recover a private key from its public key.
+Mainstream hardware wallets give the computer public keys: Ledger with every address, Trezor's
+extended key through MetaMask, QR wallets by syncing extended keys. Airkeys sends addresses only,
+puts every account on its own hardened path, and by default moves what is left after a spend to a
+fresh account in the same signing. See [Design](docs/DESIGN.md).
 
 ## Repository
 
@@ -43,17 +42,18 @@ same signing. → [Design](docs/DESIGN.md)
 docs/            PROTOCOL.md (the wire protocol), DESIGN.md (decisions, threat model, limits),
                  RECOVERY.md (getting your funds back without Airkeys)
 registry/        networks.json — chains and tokens, shared by the phone's core and the web app
-core/            Rust: the phone's whole brain, shared by iOS and Android
+core/            Rust, shared by iOS and Android: every decision and computation
   wallet/          keys, addresses, transactions, protocol checks — pure functions
   app/             the Crux app (every screen and rule) + the runtime the shells call (uniffi)
   e2e/             signing and recovery checked against Bitcoin Core and an Ethereum fork
 app-android/     Jetpack Compose shell
 app-ios/         SwiftUI shell
 app-web/         SvelteKit static site: landing page, web app, browser extension
+store/           store listings, review notes, screenshots, and how a release is made
 ```
 
-The shells draw the core's view and perform what it asks (camera, screen); every decision —
-which screen, what it says, what may be signed — is in `core/`.
+The shells draw the core's view and do what it asks (camera, screen). Every decision, such as
+which screen comes next, what it says and what may be signed, is made in `core/`.
 
 ## Build
 
@@ -65,39 +65,22 @@ which screen, what it says, what may be signed — is in `core/`.
 | Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `build/` |
 | Browser extension | the same | `bun run extension` → `extension/` (load unpacked) |
 
-Self-hosting the web app is copying `build/` to any static host (over HTTPS: the camera needs
-it). Its chain endpoints are in Settings; point them at your own nodes.
+To self-host the web app, copy `build/` to any static host over HTTPS (the camera needs it),
+and point its chain endpoints (in Settings) at your own nodes.
 
 ## Verification
 
-CI runs the core, web and Android checks on every pull request. Everything below runs, and
-passes, on this tree:
-
-```sh
-cd core
-cargo test --workspace --release        # BIP-39/32, addresses vs. independent tools, hostile requests,
-                                        # protocol checks, app flows through the real FFI object
-cargo clippy --workspace --all-targets -- -D warnings
-node e2e/evm.mjs                        # anvil fork of mainnet: USDC, USDT, ETH, EIP-1559 + legacy
-BITCOIND=… node e2e/bitcoin.mjs         # Bitcoin Core regtest: P2TR/P2PKH/P2SH outputs, fee-attack refusal
-BITCOIND=… node e2e/recovery.mjs        # docs/RECOVERY.md's recipes find the same accounts
-
-cd ../app-web/airkeys.app
-bun run test                            # web logic vs. the core's vectors
-BITCOIND=… bun scripts/chains/bitcoin.ts   # the web app's Bitcoin client against Bitcoin Core
-node scripts/e2e.mjs                    # the whole system: web app in Chrome with a fake webcam showing
-                                        # the phone's real screen, against an Ethereum fork
-cd ../../app-ios && xcodebuild -scheme Airkeys -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
-```
-
-See [docs/DESIGN.md § What is verified](docs/DESIGN.md#what-is-verified) for what each check
-proves and what remains untested.
+CI runs the core, web and Android checks on every pull request; [CONTRIBUTING.md](CONTRIBUTING.md#checks)
+lists them with the iOS tests. End-to-end checks run against Bitcoin Core regtest, an Ethereum
+mainnet fork and the whole system in Chrome ([core/README.md](core/README.md),
+[app-web/airkeys.app/README.md](app-web/airkeys.app/README.md)).
+[What is verified](docs/DESIGN.md#what-is-verified) says what each check proves and what is
+untested.
 
 ## Contributing
 
-Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) first. The wire
-protocol is a contract between apps updated at different times: within version 1 it does not
-change. Report vulnerabilities privately ([SECURITY.md](SECURITY.md)). Changes are listed in
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first; the wire protocol does not change within version
+1. Report vulnerabilities privately ([SECURITY.md](SECURITY.md)). Changes are in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## License

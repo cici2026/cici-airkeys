@@ -1,21 +1,20 @@
 # Contributing to Airkeys
 
-Thanks for helping. Airkeys guards real money, so changes are judged first by whether they
-keep its promises ([docs/DESIGN.md](docs/DESIGN.md)), then by whether they keep it simple.
-
-Found a security problem? Do not open an issue — see [SECURITY.md](SECURITY.md).
+Airkeys guards real money. A change must first keep the promises in
+[docs/DESIGN.md](docs/DESIGN.md), then keep things simple. Report security problems privately
+([SECURITY.md](SECURITY.md)), not in an issue.
 
 ## Before you start
 
-- For anything beyond a small fix, open an issue first and describe what you want to change
-  and why. It saves you work on something that cannot be merged.
-- Never paste a recovery phrase that holds funds into an issue, a test or a screenshot. Use the
+- Beyond a small fix, first open an issue saying what you want to change and why, so no work
+  goes into something that cannot be merged.
+- Never put a recovery phrase that holds funds in an issue, a test or a screenshot. Use the
   standard test phrase (`abandon` eleven times, then `about`).
 
 ## The protocol does not break
 
-[docs/PROTOCOL.md](docs/PROTOCOL.md) is a contract between phones and web apps that are
-updated at different times. Within protocol version 1:
+[docs/PROTOCOL.md](docs/PROTOCOL.md) is a contract between phones and web apps updated at
+different times. Within protocol version 1:
 
 - a message the other side accepts today must still be accepted, and mean the same;
 - derivation paths, addresses, signing and the checks of §7 do not change;
@@ -26,10 +25,10 @@ document updated together.
 
 ## Where things go
 
-- **Decisions live in `core/`.** Which screen comes next, every string a person reads, what may
-  be signed — the Android and iOS shells only draw the core's view and perform what it asks.
-  A change that makes the two phones behave differently is a bug.
-- **The web app holds addresses only.** It must never need a key or a public key.
+- Decisions live in `core/`: which screen comes next, every string a person reads, what may be
+  signed. The Android and iOS shells only draw the core's view and do what it asks; the two
+  phones behaving differently is a bug.
+- The web app holds addresses only and must never need a key or a public key.
 - `registry/networks.json` is shared by the phone and the web app; change it in one place.
 
 ## Checks
@@ -59,31 +58,28 @@ cd app-ios && xcodegen && xcodebuild -scheme Airkeys \
 ```
 
 The end-to-end checks (`core/e2e/`, `app-web/airkeys.app/scripts/e2e.mjs`) need Bitcoin Core,
-Foundry and Chrome; see each README. Run them when you change signing, requests or the codes.
+Foundry and Chrome (see each README); run them after changing signing, requests or the codes.
 
-If you change how the core parses addresses, regenerate the web app's test vectors (CI checks
-that they match):
+After changing how the core parses addresses, regenerate the web app's test vectors (CI checks
+them):
 
 ```sh
 cd core && cargo run -q --release -p airkeys-wallet --example vectors \
   > ../app-web/airkeys.app/src/lib/vectors.json
 ```
 
-A new version is set in four places, and CI checks they agree: `core/Cargo.toml`,
+A new version goes in four places, which CI checks agree: `core/Cargo.toml`,
 `app-android/Airkeys/app/build.gradle.kts` (`versionName`, and `versionCode` + 1),
 `app-ios/project.yml` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`) and
 `app-web/airkeys.app/package.json`.
 
 ## Style
 
-- Formatting is automatic: `cargo fmt`, Prettier (`bun run format`), and the IDE defaults for
-  Kotlin and Swift; `.editorconfig` covers the rest.
-- Write for the person reading the code next: say why, not what. Match the comments and names
-  around you.
-- Commits: one change each, with a message that says what it does and why
-  (`fix: …`, `feat: …`, `docs: …`).
-- Add a line to [CHANGELOG.md](CHANGELOG.md) under *Unreleased* for anything a user would
-  notice.
+- Formatting: `cargo fmt`, Prettier (`bun run format`), the IDE defaults for Kotlin and Swift,
+  and `.editorconfig` for the rest.
+- Comments say why, not what. Match the comments and names around you.
+- One change per commit; the message says what and why (`fix: …`, `feat: …`, `docs: …`).
+- Anything a user would notice gets a line in [CHANGELOG.md](CHANGELOG.md) under *Unreleased*.
 
 ## License
 

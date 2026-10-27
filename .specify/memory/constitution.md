@@ -55,7 +55,7 @@ as a limit, not left out.
 - Secrets in memory are wiped when no longer needed; screens holding them block screenshots in
   release builds.
 - No analytics, no telemetry, no network access on the phone. The web app talks only to the
-  endpoints in its settings.
+  endpoints in its settings and loads no analytics; only the website's own pages count visits.
 - Vulnerabilities are handled privately ([SECURITY.md](../../SECURITY.md)).
 
 ## Development workflow

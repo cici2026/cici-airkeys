@@ -1,10 +1,10 @@
 # Recovering funds without Airkeys
 
-Airkeys keeps nothing: your funds are your recovery phrase (and passphrase, if you set one),
+Airkeys keeps nothing: your recovery phrase (and passphrase, if you set one) is all you need,
 read with standard BIP-39 and derived with standard BIP-32 / SLIP-0010. Only the paths are
-unusual — they start with Airkeys' own step `65738275'` ([why](DESIGN.md#a-path-of-its-own)) and every
-step is hardened ([why](DESIGN.md#every-derivation-step-hardened)) — so a wallet
-that imports the phrase with its defaults shows *other*, empty addresses. Any tool that takes a
+unusual. They start with Airkeys' own step `65738275'` ([why](DESIGN.md#a-path-of-its-own)) and
+every step is hardened ([why](DESIGN.md#every-derivation-step-hardened)), so a wallet that
+imports the phrase with its default paths shows other, empty addresses. Any tool that takes a
 full derivation path with hardened steps finds yours:
 
 | Network | Account *i* |
@@ -20,14 +20,14 @@ Before you start:
 - A key that has been on an online computer is out of the bunker: once recovered, move the funds.
 
 Every recipe below is tested by [`core/e2e/recovery.mjs`](../core/e2e/recovery.mjs) with the
-tools named (Bitcoin Core 31.1, Foundry `cast` 1.5): they derive exactly
-the addresses Airkeys shows, with and without a passphrase, and on Bitcoin a recovered wallet
-sweeps real coins.
+tools named (Bitcoin Core 31.1, Foundry `cast` 1.5). They derive exactly the addresses Airkeys
+shows, with and without a passphrase, and on Bitcoin a recovered wallet sweeps coins on
+regtest.
 
 ## Bitcoin — Bitcoin Core
 
 You need a synced, unpruned Bitcoin Core node and the phrase's root key (`xprv…`). This
-script prints the root key using nothing but Python's standard library — read it first:
+script prints the root key using only Python's standard library; read it first:
 
 ```python
 # Prints the BIP-32 root key (xprv) of a recovery phrase. Python 3 standard library only.
@@ -59,14 +59,15 @@ bitcoin-cli -rpcwallet=airkeys getbalance
 bitcoin-cli -rpcwallet=airkeys sendall '["bc1q…your new address"]'
 ```
 
-`importdescriptors` rescans the chain for accounts 0–99 — slow from `"timestamp": 0`; a Unix
-time shortly before your first deposit is faster. `sendall` sweeps every coin of every account.
+`importdescriptors` rescans the chain for accounts 0–99. From `"timestamp": 0` this is slow; a
+Unix time shortly before your first deposit is faster. `sendall` sweeps every coin of every
+account.
 
 ## Ethereum and EVM chains — `cast`, then any wallet
 
-[Foundry](https://getfoundry.sh)'s `cast` derives the private key of any path. Account #0
-shown; for account *i*, end the path with `i'`, and add `--mnemonic-passphrase "$PASS"` if you
-set a passphrase:
+[Foundry](https://getfoundry.sh)'s `cast` derives the private key of any path. The commands
+below are for account #0. For account *i*, end the path with `i'`; if you set a passphrase, add
+`--mnemonic-passphrase "$PASS"`:
 
 ```sh
 read -rs PHRASE                       # type the phrase; nothing is shown or kept in history
@@ -74,6 +75,6 @@ cast wallet address     --mnemonic "$PHRASE" --mnemonic-derivation-path "m/65738
 cast wallet private-key --mnemonic "$PHRASE" --mnemonic-derivation-path "m/65738275'/44'/60'/0'/0'/0'"
 ```
 
-The first command prints the address — compare it; import the private key into MetaMask,
-Rabby or any EVM wallet ("Import account"). It holds the account on every EVM chain, ERC-20
+The first command prints the address; compare it. Then import the private key into MetaMask,
+Rabby or any EVM wallet ("Import account"). It controls the account on every EVM chain, ERC-20
 tokens included.
