@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Source of the Google Play feature graphic (1024×500): feature-graphic.html#en or #zh.
+     Rendered by render.mjs. -->
+<style>
+  html, body { margin: 0; }
+  body { width: 1024px; height: 500px; overflow: hidden; background: #0b0d11; color: #eceef2;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Noto Sans CJK SC', sans-serif; }
+  .wrap { display: flex; align-items: center; gap: 60px; height: 100%; padding: 0 80px; box-sizing: border-box;
+    background: radial-gradient(circle at 12% 50%, rgba(242,181,68,.18) 0, rgba(242,181,68,0) 40%); }
+  svg { flex: none; }
+  h1 { margin: 0; font-size: 50px; line-height: 1.1; letter-spacing: -0.02em; }
+  p { margin: 18px 0 0; font-size: 26px; line-height: 1.4; color: #9ba3b4; max-width: 600px; text-wrap: balance; }
+  .chips { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .chips span { font-size: 19px; padding: 7px 14px; border-radius: 999px; background: #13161c; border: 1px solid #262b35; color: #eceef2; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- the mark (app-web/airkeys.app/src/lib/ui/Mark.svelte) -->
+  <svg width="200" height="200" viewBox="27 27 54 54">
+    <circle cx="54" cy="54" r="24.75" fill="none" stroke="#f2b544" stroke-width="4.5"/>
+    <path fill="#f2b544" d="M54 40.5a8.5 8.5 0 0 1 4.9 15.45l3.1 13.55a1.6 1.6 0 0 1-1.56 1.95h-12.88a1.6 1.6 0 0 1-1.56-1.95l3.1-13.55a8.5 8.5 0 0 1 4.9-15.45z"/>
+  </svg>
+  <div>
+    <h1 id="title"></h1>
+    <p id="lead"></p>
+    <div class="chips" id="chips"></div>
+  </div>
+</div>
+<script>
+  const text = {
+    en: { title: 'A cold wallet for a phone that stays offline', lead: 'The web companion prepares a transfer; your offline phone shows every detail and signs it.', chips: ['Addresses only', 'Bitcoin and EVM', 'Open source'] },
+    zh: { title: '装在离线手机上的冷钱包', lead: '网页助手准备转账，离线手机逐项显示后签名。', chips: ['只给地址', 'Bitcoin 和 EVM', '开源'] }
+  }[location.hash.slice(1) || 'en'];
+  document.documentElement.lang = location.hash === '#zh' ? 'zh-Hans' : 'en';
+  document.getElementById('title').textContent = text.title;
+  document.getElementById('lead').textContent = text.lead;
+  for (const c of text.chips) { const s = document.createElement('span'); s.textContent = c; document.getElementById('chips').append(s); }
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Frames a raw app screenshot with a caption for the store listings. Rendered by render.mjs;
+     the query string carries the image, the caption and the language. -->
+<style>
+  html, body { margin: 0; }
+  body { overflow: hidden; background: #0b0d11; color: #eceef2;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Noto Sans CJK SC', sans-serif; }
+  .page { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 6vh 0 5vh; background: radial-gradient(circle at 85% 6%, rgba(242,181,68,.16) 0, rgba(242,181,68,0) 50%); }
+  h1 { margin: 0 7vw; font-size: 6.4vw; line-height: 1.15; letter-spacing: -0.02em; text-align: center; text-wrap: balance; }
+  p { margin: 1.4vh 8vw 0; font-size: 3.6vw; line-height: 1.35; color: #9ba3b4; text-align: center; text-wrap: balance; }
+  .shot { margin-top: 4.5vh; flex: 1 1 auto; min-height: 0; border-radius: 3.2vh; overflow: hidden;
+    box-shadow: 0 3vh 7vh rgba(0,0,0,.5); border: 0.25vh solid #262b35; }
+  .shot img { height: 100%; display: block; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 id="title"></h1>
+  <p id="sub"></p>
+  <div class="shot"><img id="img" alt=""></div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('title').textContent = q.get('title');
+  document.getElementById('sub').textContent = q.get('sub');
+  document.getElementById('img').src = q.get('img');
+  document.documentElement.lang = q.get('lang') === 'zh' ? 'zh-Hans' : 'en';
+</script>
+</body>
+</html>
