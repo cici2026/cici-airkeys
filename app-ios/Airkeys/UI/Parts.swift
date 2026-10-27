@@ -192,9 +192,10 @@ struct Address: View {
         let prefix = address.hasPrefix("0x") ? "0x" : ""
         let groups = Array(address.dropFirst(prefix.count)).chunked(4).map { String($0) }
         var text = Text(prefix.isEmpty ? "" : "0x ").foregroundColor(Ink.faint)
+        // one weight; the first and last groups brighter, as people compare them
         for (i, g) in groups.enumerated() {
             let edge = i == 0 || i == groups.count - 1
-            text = text + Text(g).foregroundColor(edge ? Ink.text : (i % 2 == 0 ? Ink.dim : Ink.text.opacity(0.8))).fontWeight(edge ? .semibold : .regular)
+            text = text + Text(g).foregroundColor(edge ? Ink.text : Ink.dim)
             if i < groups.count - 1 { text = text + Text(" ") }
         }
         return text.font(.system(size: size, design: .monospaced)).lineSpacing(5).textSelection(.enabled)

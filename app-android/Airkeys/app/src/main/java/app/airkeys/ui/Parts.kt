@@ -218,9 +218,10 @@ fun Address(address: String, modifier: Modifier = Modifier, style: TextStyle = T
     Text(
         buildAnnotatedString {
             if (prefix.isNotEmpty()) withStyle(SpanStyle(color = Ink.faint)) { append("0x ") }
+            // one weight; the first and last groups brighter, as people compare them
             groups.forEachIndexed { i, g ->
                 val edge = i == 0 || i == groups.size - 1
-                withStyle(SpanStyle(color = if (edge) Ink.text else if (i % 2 == 0) Ink.dim else Ink.text.copy(alpha = 0.8f), fontWeight = if (edge) FontWeight.SemiBold else FontWeight.Normal)) { append(g) }
+                withStyle(SpanStyle(color = if (edge) Ink.text else Ink.dim)) { append(g) }
                 if (i < groups.size - 1) append(" ")
             }
         },

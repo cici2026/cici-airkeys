@@ -183,10 +183,11 @@ pub struct ReviewView {
     pub hold_label: String,
 }
 
-/// One transfer of a request: to whom, how much, and what it costs.
+/// One transfer of a request: how much, and to whom. What it costs is the request's one fee
+/// (`ReviewView::fee`): a fee on every card said the same thing again, less usefully.
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct TransferView {
-    /// "Transaction 2", when a request has several (EVM: one transaction each).
+    /// "2 of 3", when a request has several (EVM: one transaction each).
     pub label: Option<String>,
     pub to: String,
     pub own_index: Option<u32>,
@@ -194,7 +195,6 @@ pub struct TransferView {
     pub asset: String,
     pub token: Option<String>,
     pub verified: bool,
-    pub fee: Option<String>,
     pub note: Option<String>,
 }
 

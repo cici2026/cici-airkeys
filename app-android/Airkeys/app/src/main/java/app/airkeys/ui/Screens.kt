@@ -506,29 +506,43 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
         for (w in r.warnings) Notice(w, Ink.warn)
         for (t in r.transfers) {
             Card(border = if (!t.verified) Ink.warn.copy(alpha = 0.5f) else Ink.stroke) {
-                t.label?.let { Label(it) }
+                t.label?.let { Text(it, style = Type.small.copy(color = Ink.faint)) }
                 Text("${t.amount} ${t.asset}", style = Type.amount)
                 t.token?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (t.verified) Pill("Listed token", Ink.safe, Icons.check) else Pill("Unlisted token", Ink.warn, Icons.warning)
-                        Text(short(it, 6), style = Type.mono.copy(fontSize = 13.sp, color = Ink.dim), modifier = Modifier.padding(start = 10.dp))
+                    if (t.verified) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.check, null, tint = Ink.safe, modifier = Modifier.size(14.dp))
+                            Text("Listed token · ${short(it, 6)}", style = Type.small, modifier = Modifier.padding(start = 6.dp))
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Pill("Unlisted token", Ink.warn, Icons.warning)
+                            Text(short(it, 6), style = Type.mono.copy(fontSize = 13.sp, color = Ink.dim), modifier = Modifier.padding(start = 10.dp))
+                        }
                     }
                 }
                 Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Label("To")
-                    t.ownIndex?.let { Spacer(Modifier.width(8.dp)); Pill("Your account #$it", Ink.safe, Icons.shield) }
+                val own = t.ownIndex
+                if (own != null) {
+                    // the phone derived its own account's address: named, the address only to glance at
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = Ink.dim)) { append("to ") }
+                            withStyle(SpanStyle(color = Ink.text, fontWeight = FontWeight.SemiBold)) { append("Your account #$own") }
+                        },
+                        style = Type.body,
+                    )
+                    Text(short(t.to, 4), style = Type.mono.copy(fontSize = 13.sp, color = Ink.dim))
+                } else {
+                    Text("to", style = Type.small)
+                    Address(t.to, style = Type.mono.copy(fontSize = 16.sp, lineHeight = 25.sp))
                 }
-                Address(t.to, style = Type.mono.copy(fontSize = 16.sp, lineHeight = 25.sp))
                 t.note?.let { Text(it, style = Type.small) }
-                t.fee?.let { Text("Network fee $it", style = Type.small) }
             }
         }
-        Card {
-            Row {
-                Text("Network fee, at most", style = Type.dim, modifier = Modifier.weight(1f))
-                Text(r.fee, style = Type.body.copy(fontWeight = FontWeight.SemiBold))
-            }
+        Row(Modifier.padding(horizontal = 4.dp)) {
+            Text("Network fee, at most", style = Type.dim, modifier = Modifier.weight(1f))
+            Text(r.fee, style = Type.body.copy(fontWeight = FontWeight.SemiBold))
         }
         for (n in r.notices) Notice(n, Ink.dim, Icons.open)
         Card(Modifier.clickable { details = !details }) {

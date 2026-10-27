@@ -23,31 +23,45 @@ struct ReviewScreen: View {
             ForEach(r.warnings, id: \.self) { Notice(text: $0, color: Ink.warn) }
             ForEach(Array(r.transfers.enumerated()), id: \.offset) { _, t in
                 Card(border: t.verified ? Ink.stroke : Ink.warn.opacity(0.5)) {
-                    if let label = t.label { Label2(text: label) }
+                    if let label = t.label { Text(label).font(.akSmall).foregroundStyle(Ink.faint) }
                     Text("\(t.amount) \(t.asset)").font(.akAmount).foregroundStyle(Ink.text).minimumScaleFactor(0.5).lineLimit(2)
                     if let token = t.token {
-                        HStack(spacing: 10) {
-                            if t.verified { Pill(text: "Listed token", color: Ink.safe, symbol: "checkmark") } else { Pill(text: "Unlisted token", color: Ink.warn, symbol: "exclamationmark.triangle") }
-                            Text(short(token)).font(.system(size: 13, design: .monospaced)).foregroundStyle(Ink.dim)
+                        if t.verified {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Ink.safe)
+                                Text("Listed token · \(short(token))").font(.akSmall).foregroundStyle(Ink.dim)
+                            }
+                        } else {
+                            HStack(spacing: 10) {
+                                Pill(text: "Unlisted token", color: Ink.warn, symbol: "exclamationmark.triangle")
+                                Text(short(token)).font(.system(size: 13, design: .monospaced)).foregroundStyle(Ink.dim)
+                            }
                         }
                     }
-                    HStack(spacing: 8) {
-                        Label2(text: "To")
-                        if let own = t.ownIndex { Pill(text: "Your account #\(own)", color: Ink.safe, symbol: "checkmark.shield") }
+                    // the phone derived its own account's address: named, the address only to glance at
+                    if let own = t.ownIndex {
+                        VStack(alignment: .leading, spacing: 2) {
+                            (Text("to ").foregroundStyle(Ink.dim) + Text("Your account #\(own)").fontWeight(.semibold).foregroundStyle(Ink.text))
+                                .font(.system(size: 16))
+                            Text(short(t.to, keep: 4)).font(.system(size: 13, design: .monospaced)).foregroundStyle(Ink.dim)
+                        }
+                        .padding(.top, 2)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("to").font(.akSmall).foregroundStyle(Ink.dim)
+                            Address(address: t.to, size: 16)
+                        }
+                        .padding(.top, 2)
                     }
-                    .padding(.top, 2)
-                    Address(address: t.to, size: 16)
                     if let note = t.note { Text(note).font(.akSmall).foregroundStyle(Ink.dim) }
-                    if let fee = t.fee { Text("Network fee \(fee)").font(.akSmall).foregroundStyle(Ink.dim) }
                 }
             }
-            Card {
-                HStack {
-                    Text("Network fee, at most").font(.akDim).foregroundStyle(Ink.dim)
-                    Spacer()
-                    Text(r.fee).font(.system(size: 16, weight: .semibold)).foregroundStyle(Ink.text)
-                }
+            HStack {
+                Text("Network fee, at most").font(.akDim).foregroundStyle(Ink.dim)
+                Spacer()
+                Text(r.fee).font(.system(size: 16, weight: .semibold)).foregroundStyle(Ink.text)
             }
+            .padding(.horizontal, 4)
             ForEach(r.notices, id: \.self) { Notice(text: $0, color: Ink.dim, symbol: "shield") }
             Button { details.toggle() } label: {
                 Card {

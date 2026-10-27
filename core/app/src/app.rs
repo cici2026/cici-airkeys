@@ -701,14 +701,13 @@ fn review_view(r: &Review) -> ReviewView {
             .iter()
             .enumerate()
             .map(|(k, t)| TransferView {
-                label: several.then(|| format!("Transaction {}", k + 1)),
+                label: several.then(|| format!("{} of {n}", k + 1)),
                 to: t.to.clone(),
                 own_index: t.own,
                 amount: t.amount.clone(),
                 asset: t.asset.clone(),
                 token: t.token.clone(),
                 verified: t.verified,
-                fee: t.fee.clone(),
                 note: t.note.clone(),
             })
             .collect(),

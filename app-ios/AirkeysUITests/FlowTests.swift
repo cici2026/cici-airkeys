@@ -93,7 +93,7 @@ final class FlowTests: XCTestCase {
 
         app.buttons["Scan request"].tap()
         XCTAssertTrue(app.staticTexts["100 USDC"].waitForExistence(timeout: 5), "the delivered request is reviewed")
-        XCTAssertTrue(app.staticTexts["Your account #1"].exists)
+        XCTAssertTrue(app.staticTexts["to Your account #1"].exists)
         shot("i05-review")
         let hold = app.buttons["hold-to-confirm"]
         XCTAssertEqual(hold.label, "Hold to sign 2 transactions")

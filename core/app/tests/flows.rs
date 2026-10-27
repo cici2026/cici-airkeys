@@ -475,7 +475,7 @@ fn scan_review_sign_show() {
     assert_eq!((t[1].amount.as_str(), t[1].own_index), ("0.3", Some(1)));
     assert_eq!(review.fee, "≤ 0.000222 ETH");
     assert_eq!(review.hold_label, "Hold to sign 2 transactions");
-    assert_eq!(review.transfers[1].label.as_deref(), Some("Transaction 2"));
+    assert_eq!(review.transfers[1].label.as_deref(), Some("2 of 2"));
     assert!(review.warnings.is_empty());
     assert!(review.notices[0].contains("reveals the public key of EVM account #0"));
 
