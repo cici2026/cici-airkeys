@@ -1,20 +1,26 @@
 <script lang="ts">
 	// A transfer, end to end: the form, the request shown to the phone, the phone's signed reply,
 	// and broadcasting. The phone checks everything again and shows it before it signs.
-	import { broadcast, prepare, type Asset, type Broadcast, type Prepared } from '$lib/chains';
-	import { encode, isIndex, parseMessage, type Account, type Signed } from '$lib/protocol';
-	import { explorerLink, NETWORK_NAMES } from '$lib/registry';
-	import { addAccounts, store } from '$lib/state.svelte';
-	import { ensure, freshIndex, holdingOf, refresh } from '$lib/holdings.svelte';
-	import { parseAddress } from '$lib/addresses';
-	import { formatShort, formatUnits, parseUnits } from '$lib/units';
-	import { elsewhere } from '$lib/value';
-	import { money, valueOf } from '$lib/prices.svelte';
-	import CodeCanvas from '$lib/lumen/CodeCanvas.svelte';
-	import Json from '$lib/ui/Json.svelte';
-	import CameraScan from '$lib/lumen/CameraScan.svelte';
+	import {
+		broadcast,
+		prepare,
+		type Asset,
+		type Broadcast,
+		type Prepared
+	} from '#lib/chains/index.ts';
+	import { encode, isIndex, parseMessage, type Account, type Signed } from '#lib/protocol.ts';
+	import { explorerLink, NETWORK_NAMES } from '#lib/registry.ts';
+	import { addAccounts, store } from '#lib/state.svelte.ts';
+	import { ensure, freshIndex, holdingOf, refresh } from '#lib/holdings.svelte.ts';
+	import { parseAddress } from '#lib/addresses.ts';
+	import { formatShort, formatUnits, parseUnits } from '#lib/units.ts';
+	import { elsewhere } from '#lib/value.ts';
+	import { money, valueOf } from '#lib/prices.svelte.ts';
+	import CodeCanvas from '#lib/lumen/CodeCanvas.svelte';
+	import Json from '#lib/ui/Json.svelte';
+	import CameraScan from '#lib/lumen/CameraScan.svelte';
 	import { onDestroy } from 'svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let {
 		account,

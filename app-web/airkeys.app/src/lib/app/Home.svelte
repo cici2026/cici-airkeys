@@ -2,19 +2,19 @@
 	// The home screen: what the wallet holds, worth what; how much of it sits behind keys never
 	// revealed (the bunker) and how much behind keys that have signed (to move, one signing per
 	// chain); every asset across accounts and chains; and, folded, every account.
-	import type { Asset } from '$lib/chains';
-	import type { Account } from '$lib/protocol';
-	import type { Chain, Network } from '$lib/registry';
-	import { store } from '$lib/state.svelte';
-	import { ensure, holdingOf, refresh } from '$lib/holdings.svelte';
-	import { currency, money, prices, refreshPrices, valueOf } from '$lib/prices.svelte';
-	import { sameChain, summarize, type Holder, type ToMove } from '$lib/value';
-	import { formatShort } from '$lib/units';
-	import Badge from '$lib/ui/Badge.svelte';
-	import Coin from '$lib/ui/Coin.svelte';
+	import type { Asset } from '#lib/chains/index.ts';
+	import type { Account } from '#lib/protocol.ts';
+	import type { Chain, Network } from '#lib/registry.ts';
+	import { store } from '#lib/state.svelte.ts';
+	import { ensure, holdingOf, refresh } from '#lib/holdings.svelte.ts';
+	import { currency, money, prices, refreshPrices, valueOf } from '#lib/prices.svelte.ts';
+	import { sameChain, summarize, type Holder, type ToMove } from '#lib/value.ts';
+	import { formatShort } from '#lib/units.ts';
+	import Badge from '#lib/ui/Badge.svelte';
+	import Coin from '#lib/ui/Coin.svelte';
 	import Exposure from './Exposure.svelte';
 	import Wallet from './Wallet.svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let {
 		open,

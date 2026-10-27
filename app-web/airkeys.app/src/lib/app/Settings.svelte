@@ -1,10 +1,10 @@
 <script lang="ts">
 	// Endpoints per chain, and EVM chains added by hand. Everything stays in this browser.
 	// Self-hosters can point every chain at their own nodes.
-	import { registry, type Chain, type Token } from '$lib/registry';
-	import { save, store } from '$lib/state.svelte';
-	import { isHttpUrl, rpc } from '$lib/chains/net';
-	import { DEFAULT_FX, loadCurrencies, prices, refreshPrices } from '$lib/prices.svelte';
+	import { registry, type Chain, type Token } from '#lib/registry.ts';
+	import { save, store } from '#lib/state.svelte.ts';
+	import { isHttpUrl, rpc } from '#lib/chains/net.ts';
+	import { DEFAULT_FX, loadCurrencies, prices, refreshPrices } from '#lib/prices.svelte.ts';
 	import {
 		CHAIN_DATA,
 		chainDetails,
@@ -12,8 +12,8 @@
 		searchChains,
 		type ChainHit,
 		type ChainOffer
-	} from '$lib/chainData';
-	import { t } from '$lib/i18n/index.svelte';
+	} from '#lib/chainData.ts';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let problem = $state('');
 	let fxProblem = $state('');

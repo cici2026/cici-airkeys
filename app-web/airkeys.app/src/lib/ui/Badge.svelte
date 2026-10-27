@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The networks' own logos: cryptocurrency-icons 0.18.1, svg/color/{btc,eth}.svg (CC0-1.0).
-	import type { Network } from '$lib/registry';
+	import type { Network } from '#lib/registry.ts';
 	let { network, size = 40 }: { network: Network; size?: number } = $props();
 </script>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Exposure } from '$lib/chains';
-	import { t } from '$lib/i18n/index.svelte';
+	import type { Exposure } from '#lib/chains/index.ts';
+	import { t } from '#lib/i18n/index.svelte.ts';
 	let { exposure, loading = false }: { exposure: Exposure; loading?: boolean } = $props();
 </script>
 

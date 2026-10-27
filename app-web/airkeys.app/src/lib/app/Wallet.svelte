@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Every account the phone has shown, grouped by account number, with what each holds.
-	import { NETWORK_NAMES, type Network } from '$lib/registry';
-	import { store } from '$lib/state.svelte';
-	import { ensure, holdingOf, refresh } from '$lib/holdings.svelte';
-	import { formatShort } from '$lib/units';
-	import type { Account } from '$lib/protocol';
-	import Badge from '$lib/ui/Badge.svelte';
+	import { NETWORK_NAMES, type Network } from '#lib/registry.ts';
+	import { store } from '#lib/state.svelte.ts';
+	import { ensure, holdingOf, refresh } from '#lib/holdings.svelte.ts';
+	import { formatShort } from '#lib/units.ts';
+	import type { Account } from '#lib/protocol.ts';
+	import Badge from '#lib/ui/Badge.svelte';
 	import Exposure from './Exposure.svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let { open, connect }: { open: (a: Account) => void; connect: () => void } = $props();
 	// Bitcoin has no test network here: on Testnet only the EVM accounts show

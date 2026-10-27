@@ -1,0 +1,17 @@
+// airkeys.app on Cloudflare Workers: `bun run build`, then `wrangler deploy`. Every page is
+// prerendered and served as a file.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "airkeys",
+	"compatibility_date": "2026-10-27",
+	"compatibility_flags": ["nodejs_als"],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare",
+		// a path that is not a file gets 404.html, which shows the error page
+		"not_found_handling": "404-page"
+	},
+	"workers_dev": true,
+	"preview_urls": true
+}

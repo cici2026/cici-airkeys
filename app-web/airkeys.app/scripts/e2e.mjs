@@ -113,7 +113,11 @@ const types = {
 	'.json': 'application/json'
 };
 const server = createServer((req, res) => {
-	let p = path.join(WEB, 'build', decodeURIComponent(new URL(req.url, 'http://x').pathname));
+	let p = path.join(
+		WEB,
+		'.svelte-kit/cloudflare',
+		decodeURIComponent(new URL(req.url, 'http://x').pathname)
+	);
 	try {
 		if (statSync(p).isDirectory()) p = path.join(p, 'index.html');
 		res.writeHead(200, { 'content-type': types[path.extname(p)] ?? 'application/octet-stream' });

@@ -2,7 +2,7 @@
 	// The camera, reading the code on the phone's screen. Frames go to a worker; the page stays
 	// smooth. `onmessage` gets the complete message once.
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let { onmessage }: { onmessage: (bytes: Uint8Array) => void } = $props();
 	let video: HTMLVideoElement;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	// A standard QR code of an address, for wallets and exchanges that pay to it.
 	import { encode } from 'uqr';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 	let { value, size = 200 }: { value: string; size?: number } = $props();
 	const qr = $derived(encode(value, { ecc: 'M', border: 2 }));
 	const path = $derived(

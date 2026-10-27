@@ -1,14 +1,14 @@
 <script lang="ts">
-	import type { Asset } from '$lib/chains';
-	import type { Account } from '$lib/protocol';
-	import Home from '$lib/app/Home.svelte';
-	import AccountPage from '$lib/app/AccountPage.svelte';
-	import Send from '$lib/app/Send.svelte';
-	import Connect from '$lib/app/Connect.svelte';
-	import Settings from '$lib/app/Settings.svelte';
-	import Mark from '$lib/ui/Mark.svelte';
-	import { save, setLang, store } from '$lib/state.svelte';
-	import { htmlLang, lang, t } from '$lib/i18n/index.svelte';
+	import type { Asset } from '#lib/chains/index.ts';
+	import type { Account } from '#lib/protocol.ts';
+	import Home from '#lib/app/Home.svelte';
+	import AccountPage from '#lib/app/AccountPage.svelte';
+	import Send from '#lib/app/Send.svelte';
+	import Connect from '#lib/app/Connect.svelte';
+	import Settings from '#lib/app/Settings.svelte';
+	import Mark from '#lib/ui/Mark.svelte';
+	import { save, setLang, store } from '#lib/state.svelte.ts';
+	import { htmlLang, lang, t } from '#lib/i18n/index.svelte.ts';
 
 	/** Mainnet or testnet: never both on screen. Switching starts again from the accounts. */
 	function mode(testnet: boolean) {

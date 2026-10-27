@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 
 /** The page's language on <html>: Chinese under /zh/, English elsewhere (the pages are prerendered). */
 export const handle: Handle = ({ event, resolve }) => {

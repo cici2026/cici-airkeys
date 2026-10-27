@@ -40,13 +40,14 @@ connections only over HTTPS or to a node on this computer (`http://localhost`,
 
 ## Commands
 
-Needs [bun](https://bun.sh), and Node.js 22.12 or later (Vite runs on it).
+Needs [bun](https://bun.sh), and Node.js 22.17 or later (Vite runs on it).
 
 ```sh
 bun install
 bun run dev            # http://localhost:5173
-bun run build          # → build/: serve it from any static host over HTTPS
-bun run preview        # serves build/ at http://localhost:4173
+bun run build          # → .svelte-kit/cloudflare: the site, every page prerendered
+bun run preview        # serves it with wrangler at http://localhost:4173
+bun run deploy         # build, then wrangler deploy (wrangler.jsonc)
 bun run extension      # → extension/: the browser extension (below)
 bun run test           # unit tests, against vectors made by the Rust core
 bun run check          # types
@@ -56,9 +57,12 @@ node scripts/e2e.mjs   # the whole system (after `bun run build`; needs Chrome, 
 BITCOIND=… bun scripts/chains/bitcoin.ts   # the Bitcoin client against Bitcoin Core regtest
 ```
 
-`build/` cannot be opened from disk: browsers run no module scripts from `file://` and give the
-camera only to secure pages. Serve it over HTTPS from any static host (`localhost` counts as
-secure, so `bun run preview` works), or load the extension.
+airkeys.app is a Cloudflare Worker whose pages are all prerendered and served as files; the
+Worker only answers paths that are not files, with the 404 page. `_headers` sets the headers a
+`<meta>` policy cannot (frame-ancestors, HSTS, the camera for this site only). Because every
+page is a file, `.svelte-kit/cloudflare` without `_worker.js` also works on any static host over
+HTTPS. It cannot be opened from disk: browsers run no module scripts from `file://` and give the
+camera only to secure pages (`localhost` counts as secure, so `bun run preview` works).
 
 The extension runs in Chromium browsers (Chrome, Edge, Brave; version 111 or later): open
 `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and pick the

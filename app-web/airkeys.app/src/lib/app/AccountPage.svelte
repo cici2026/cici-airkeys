@@ -1,16 +1,16 @@
 <script lang="ts">
 	// One account on one network: where to receive, what it holds, whether its key is hidden.
-	import { NETWORK_NAMES, explorerLink, path } from '$lib/registry';
-	import { chainsOf, removeAccount } from '$lib/state.svelte';
-	import { holdingOf, refresh, ensure } from '$lib/holdings.svelte';
-	import { formatUnits } from '$lib/units';
-	import type { Account } from '$lib/protocol';
-	import type { Asset } from '$lib/chains';
-	import Address from '$lib/ui/Address.svelte';
-	import Badge from '$lib/ui/Badge.svelte';
-	import Qr from '$lib/ui/Qr.svelte';
+	import { NETWORK_NAMES, explorerLink, path } from '#lib/registry.ts';
+	import { chainsOf, removeAccount } from '#lib/state.svelte.ts';
+	import { holdingOf, refresh, ensure } from '#lib/holdings.svelte.ts';
+	import { formatUnits } from '#lib/units.ts';
+	import type { Account } from '#lib/protocol.ts';
+	import type { Asset } from '#lib/chains/index.ts';
+	import Address from '#lib/ui/Address.svelte';
+	import Badge from '#lib/ui/Badge.svelte';
+	import Qr from '#lib/ui/Qr.svelte';
 	import Exposure from './Exposure.svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let {
 		account,

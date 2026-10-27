@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
-import adapter from '@sveltejs/adapter-static';
+import cloudflare from '@sveltejs/adapter-cloudflare';
+import files from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 // AIRKEYS_EXTENSION=1 builds the browser extension (scripts/extension.mjs): the app alone,
@@ -10,10 +11,12 @@ export default defineConfig(({ command }) => ({
 	plugins: [
 		sveltekit({
 			compilerOptions: { runes: true },
-			// a static site: host the build/ folder anywhere
+			// the site: a Cloudflare Worker (wrangler.jsonc) whose pages are all prerendered and
+			// served as files, and 404.html (the error page) for any other path; the extension:
+			// plain files
 			adapter: extension
-				? adapter({ pages: 'extension', assets: 'extension', fallback: 'index.html' })
-				: adapter({ fallback: '404.html' }),
+				? files({ pages: 'extension', assets: 'extension', fallback: 'index.html' })
+				: cloudflare({ fallback: 'spa' }),
 			// browser extensions refuse folder names that start with "_"
 			appDir: 'app-kit',
 			...(extension

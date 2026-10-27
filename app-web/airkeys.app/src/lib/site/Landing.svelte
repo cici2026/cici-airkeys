@@ -2,9 +2,9 @@
 	// The landing page of airkeys.app, in either language: the words are content.ts's.
 	import type { Content } from './content';
 	import { site, repoFile, securityReport, listings, launched } from './site';
-	import { registry } from '$lib/registry';
-	import Mark from '$lib/ui/Mark.svelte';
-	import Badge from '$lib/ui/Badge.svelte';
+	import { registry } from '#lib/registry.ts';
+	import Mark from '#lib/ui/Mark.svelte';
+	import Badge from '#lib/ui/Badge.svelte';
 
 	let { c }: { c: Content } = $props();
 	const chains = registry.evm.filter((x) => !x.testnet).map((x) => x.name);

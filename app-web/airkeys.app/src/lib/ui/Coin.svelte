@@ -2,7 +2,7 @@
 	// A coin or token's mark: the network's logo for its own coin, otherwise its symbol on a
 	// colour of its own (the same symbol, the same colour). No logos are fetched: the web app
 	// asks nothing it does not need.
-	import type { Asset } from '$lib/chains';
+	import type { Asset } from '#lib/chains/index.ts';
 	import Badge from './Badge.svelte';
 
 	let { asset, size = 36 }: { asset: Asset; size?: number } = $props();

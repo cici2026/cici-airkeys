@@ -1,0 +1,9 @@
+# Response headers for airkeys.app, which a <meta> CSP cannot set. The adapter copies this file
+# into the Worker's assets. The camera is the web companion's own, for reading the phone's codes.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()

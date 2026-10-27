@@ -2,7 +2,7 @@
 	// A legal document of airkeys.app (terms, privacy), in either language.
 	import type { LegalDoc, Legal } from './legal';
 	import { site } from './site';
-	import Mark from '$lib/ui/Mark.svelte';
+	import Mark from '#lib/ui/Mark.svelte';
 	import Analytics from './Analytics.svelte';
 
 	let {

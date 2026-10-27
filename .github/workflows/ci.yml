@@ -67,6 +67,10 @@ jobs:
         working-directory: app-web/airkeys.app
     steps:
       - uses: actions/checkout@v4
+      # SvelteKit needs Node.js 22.17 or later; Cloudflare's build uses 24
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run format:check

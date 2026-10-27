@@ -62,11 +62,12 @@ which screen comes next, what it says and what may be signed, is made in `core/`
 | Core tests | Rust (pinned in `core/rust-toolchain.toml`) | `cd core && cargo test --workspace --release` |
 | Android app | JDK 17 and 21, Android SDK + NDK, `cargo install cargo-ndk` | `cd app-android/Airkeys && ./gradlew :app:assembleRelease` |
 | iOS app | Apple silicon, Xcode 26, `brew install xcodegen` | `core/scripts/build-ios.sh && cd app-ios && xcodegen && open Airkeys.xcodeproj` |
-| Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `build/` |
+| Web app | [bun](https://bun.sh) (or npm) | `cd app-web/airkeys.app && bun install && bun run build` → `.svelte-kit/cloudflare/` |
 | Browser extension | the same | `bun run extension` → `extension/` (load unpacked) |
 
-To self-host the web app, copy `build/` to any static host over HTTPS (the camera needs it),
-and point its chain endpoints (in Settings) at your own nodes.
+airkeys.app runs on Cloudflare Workers (`bun run deploy`). Every page is prerendered, so to
+self-host the web app, copy `.svelte-kit/cloudflare/` without `_worker.js` to any static host
+over HTTPS (the camera needs it), and point its chain endpoints (in Settings) at your own nodes.
 
 ## Verification
 

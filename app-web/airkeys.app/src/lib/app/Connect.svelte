@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CameraScan from '$lib/lumen/CameraScan.svelte';
-	import { parseMessage } from '$lib/protocol';
-	import { NETWORK_NAMES } from '$lib/registry';
-	import { addAccounts, conflicts, replaceAccounts, store } from '$lib/state.svelte';
-	import { t } from '$lib/i18n/index.svelte';
+	import CameraScan from '#lib/lumen/CameraScan.svelte';
+	import { parseMessage } from '#lib/protocol.ts';
+	import { NETWORK_NAMES } from '#lib/registry.ts';
+	import { addAccounts, conflicts, replaceAccounts, store } from '#lib/state.svelte.ts';
+	import { t } from '#lib/i18n/index.svelte.ts';
 
 	let { done }: { done: (message: string) => void } = $props();
 	let problem = $state('');

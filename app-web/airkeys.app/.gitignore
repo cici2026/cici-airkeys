@@ -4,3 +4,4 @@
 /build
 /extension
 node_modules
+/.wrangler
