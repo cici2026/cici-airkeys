@@ -59,16 +59,16 @@ final class FlowTests: XCTestCase {
         app.buttons["Open wallet"].tap()
 
         XCTAssertTrue(app.staticTexts["Ethereum & EVM"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["0xcf6335E1…595f0b03"].exists, "account #0 is the known address")
+        XCTAssertTrue(app.staticTexts["0xF23521DE…7Bf5e158"].exists, "account #0 is the known address")
         shot("i04-home")
 
         // the wheel: account #7, then back to #0
         let wheel = app.pickerWheels.firstMatch
         wheel.adjust(toPickerWheelValue: "7")
-        XCTAssertTrue(app.staticTexts["0x99b93685…0ffF7cbf"].waitForExistence(timeout: 3), "the wheel at 7 shows account #7")
+        XCTAssertTrue(app.staticTexts["0x1445Be1A…2dD48e19"].waitForExistence(timeout: 3), "the wheel at 7 shows account #7")
         shot("i04-wheel-7")
         wheel.adjust(toPickerWheelValue: "0")
-        XCTAssertTrue(app.staticTexts["0xcf6335E1…595f0b03"].waitForExistence(timeout: 3), "and back at 0, account #0")
+        XCTAssertTrue(app.staticTexts["0xF23521DE…7Bf5e158"].waitForExistence(timeout: 3), "and back at 0, account #0")
 
         app.buttons["Connect"].tap()
         XCTAssertTrue(app.staticTexts["All 100 accounts"].waitForExistence(timeout: 3), "the Connect screen offers all accounts")
