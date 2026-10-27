@@ -3,6 +3,7 @@ import { load, type Look } from './chains';
 import type { Account } from './protocol';
 import type { Network } from './registry';
 import { store } from './state.svelte';
+import { t } from './i18n/index.svelte';
 
 export interface Holding extends Look {
 	loading: boolean;
@@ -27,7 +28,7 @@ export function holdingOf(a: Account): Holding | undefined {
 
 async function round(network: Network, accounts: Account[]) {
 	let looks = new Map<string, Look>();
-	let failed = 'No answer.';
+	let failed = t.common.noAnswerAtAll;
 	try {
 		looks = await load(
 			network,

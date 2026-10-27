@@ -2,6 +2,7 @@
 	// The camera, reading the code on the phone's screen. Frames go to a worker; the page stays
 	// smooth. `onmessage` gets the complete message once.
 	import { onDestroy, onMount } from 'svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let { onmessage }: { onmessage: (bytes: Uint8Array) => void } = $props();
 	let video: HTMLVideoElement;
@@ -19,23 +20,22 @@
 		switch ((e as Error)?.name) {
 			case 'NotAllowedError':
 			case 'SecurityError':
-				return 'The browser was not allowed to use the camera. Allow it for this page, then try again.';
+				return t.scan.notAllowed;
 			case 'NotFoundError':
 			case 'OverconstrainedError':
-				return 'No camera is available.';
+				return t.scan.noCamera;
 			case 'NotReadableError':
 			case 'AbortError':
-				return 'The camera is in use by another app or tab. Close it there, then try again.';
+				return t.scan.inUse;
 			default:
-				return `The camera did not start: ${(e as Error)?.message ?? e}`;
+				return t.scan.notStarted(String((e as Error)?.message ?? e));
 		}
 	}
 
 	onMount(async () => {
 		// browsers give the camera to secure pages only: HTTPS, or this computer
 		if (!isSecureContext || !navigator.mediaDevices) {
-			error =
-				'The camera needs a secure page: open Airkeys over HTTPS (or from localhost), or as the browser extension.';
+			error = t.scan.insecure;
 			return;
 		}
 		let s: MediaStream;
@@ -50,7 +50,7 @@
 		}
 		// the view was left while the browser asked: let the camera go at once
 		if (stopped) {
-			s.getTracks().forEach((t) => t.stop());
+			s.getTracks().forEach((track) => track.stop());
 			return;
 		}
 		stream = s;
@@ -58,7 +58,7 @@
 		try {
 			await video.play();
 		} catch (e) {
-			if (!stopped) error = `The camera's picture did not start: ${(e as Error).message}`;
+			if (!stopped) error = t.scan.noPicture((e as Error).message);
 			stop();
 			return;
 		}
@@ -75,7 +75,7 @@
 			if (e.data.progress) progress = e.data.progress;
 		};
 		worker.onerror = (e) => {
-			error = `The code reader stopped: ${e.message || 'it did not load'}. Reload the page.`;
+			error = t.scan.readerStopped(e.message || t.scan.didNotLoad);
 			stop();
 		};
 		tick();
@@ -100,7 +100,7 @@
 
 	function stop() {
 		stopped = true;
-		stream?.getTracks().forEach((t) => t.stop());
+		stream?.getTracks().forEach((track) => track.stop());
 		worker?.terminate();
 	}
 	onDestroy(stop);
@@ -118,19 +118,17 @@
 	<div
 		class="bar"
 		role="progressbar"
-		aria-label="Receiving the code"
+		aria-label={t.scan.receivingLabel}
 		aria-valuemin={0}
 		aria-valuemax={100}
 		aria-valuenow={percent}
 	>
 		<div style="width: {percent}%"></div>
 	</div>
-	<p class="dim" role="status">Receiving…</p>
+	<p class="dim" role="status">{t.scan.receiving}</p>
 {:else}
 	<p class="dim" role="status">
-		{seen
-			? 'Code found — hold still.'
-			: 'Hold the phone in front of the camera, its code facing it.'}
+		{seen ? t.scan.found : t.scan.hold}
 	</p>
 {/if}
 

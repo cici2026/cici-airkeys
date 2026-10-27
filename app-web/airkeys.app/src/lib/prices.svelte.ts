@@ -6,6 +6,7 @@ import type { Asset } from './chains/net';
 import { getJson, rpcBatch } from './chains/net';
 import { chainsOf, store } from './state.svelte';
 import { amountOf, FEEDS, LATEST_ROUND, priceKey, readRound } from './value';
+import { t } from './i18n/index.svelte';
 
 export const DEFAULT_FX = 'https://vela-currency.getvela.app/v2/rates?base=USD';
 const FRESH_MS = 3 * 60_000;
@@ -57,7 +58,7 @@ async function load() {
 					if (p !== null) usd[f.key] = p;
 				});
 			} catch (e) {
-				failed.push(`prices on ${chain.name}: ${(e as Error).message}`);
+				failed.push(t.prices.feedFailed(chain.name, (e as Error).message));
 			}
 		})
 	);
@@ -90,10 +91,10 @@ async function rateFor(code: string, failed: string[]): Promise<number | null> {
 	if (code === 'USD') return 1;
 	try {
 		const rate = (await table()).get(code);
-		if (rate === undefined) failed.push(`no exchange rate for ${code}`);
+		if (rate === undefined) failed.push(t.prices.noRate(code));
 		return rate ?? null;
 	} catch (e) {
-		failed.push(`the exchange rate for ${code}: ${(e as Error).message}`);
+		failed.push(t.prices.rateFailed(code, (e as Error).message));
 		return null;
 	}
 }

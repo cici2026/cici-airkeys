@@ -10,6 +10,7 @@
 	import Badge from '$lib/ui/Badge.svelte';
 	import Qr from '$lib/ui/Qr.svelte';
 	import Exposure from './Exposure.svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		account,
@@ -44,10 +45,10 @@
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(account.address);
-			copied = 'Copied';
+			copied = t.account.copied;
 		} catch {
 			// no clipboard (an insecure page, or not allowed): the address is on screen
-			copied = 'Not copied: select the address';
+			copied = t.account.notCopied;
 		}
 		setTimeout(() => (copied = ''), 1500);
 	}
@@ -55,16 +56,16 @@
 
 <div class="stack">
 	<div class="row">
-		<button class="ghost" onclick={back}>← Home</button>
+		<button class="ghost" onclick={back}>← {t.common.home}</button>
 		<div class="grow"></div>
 		<button class="ghost" onclick={() => refresh([account])} disabled={h?.loading}
-			>{h?.loading ? 'Refreshing…' : 'Refresh'}</button
+			>{h?.loading ? t.account.refreshing : t.common.refresh}</button
 		>
 	</div>
 	<div class="row">
 		<Badge network={account.network} size={52} />
 		<div class="grow">
-			<h2>{NETWORK_NAMES[account.network]} · account #{account.index}</h2>
+			<h2>{t.account.title(NETWORK_NAMES[account.network], account.index)}</h2>
 			<div class="small mono">{path(account.network, account.index)}</div>
 		</div>
 		<Exposure exposure={h?.exposure ?? 'unknown'} loading={!h || h.loading} />
@@ -73,27 +74,25 @@
 	<div class="receive card">
 		<Qr value={account.address} size={168} />
 		<div class="stack grow">
-			<div class="label">Receive at</div>
+			<div class="label">{t.account.receiveAt}</div>
 			<Address address={account.address} size={17} />
 			<div class="row">
-				<button onclick={copy}>{copied || 'Copy address'}</button>
+				<button onclick={copy}>{copied || t.account.copyAddress}</button>
 				{#if explorer}<a class="small" href={explorer} target="_blank" rel="noreferrer"
-						>Explorer ↗</a
+						>{t.account.explorer}</a
 					>{/if}
 			</div>
-			{#if account.network === 'evm'}<p class="small">The same address on every EVM chain.</p>{/if}
+			{#if account.network === 'evm'}<p class="small">{t.account.sameOnEvm}</p>{/if}
 		</div>
 	</div>
 
 	{#if h?.exposure === 'exposed'}
 		<div class="notice warn">
-			This address has sent before, so its public key is on chain. Move what it holds to an account
-			whose key is still hidden — <b>Move all</b> below, one signing per chain.
+			{t.account.exposedBefore}<b>{t.account.moveAll}</b>{t.account.exposedAfter}
 		</div>
 	{:else if h?.exposure === 'hidden'}
 		<div class="notice info">
-			The public key behind this address has never been revealed. Receiving keeps it that way; the
-			first send reveals it.
+			{t.account.hidden}
 		</div>
 	{/if}
 
@@ -109,7 +108,7 @@
 								move(
 									shown.find((a) => a.chain.name === c && !a.token) ??
 										shown.find((a) => a.chain.name === c)!
-								)}>Move all</button
+								)}>{t.account.moveAll}</button
 						>
 					{/if}
 				</div>
@@ -122,30 +121,30 @@
 						</div>
 						{#if a.token}<div class="small mono">{a.token.address}</div>{/if}
 					</div>
-					<button class="primary" onclick={() => send(a)}>Send</button>
+					<button class="primary" onclick={() => send(a)}>{t.account.send}</button>
 				</div>
 			{/each}
 		</section>
 	{/each}
 	{#if !chains.length && h && !h.loading && !h.failed.length}
 		<div class="card stack empty">
-			<b>Nothing to send yet</b>
+			<b>{t.account.nothingToSend}</b>
 			<span class="small"
-				>This account holds nothing on {empty.join(', ')}. Receive at the address above: each coin
-				or token it holds then appears here with a <b>Send</b> button.</span
+				>{t.account.holdsNothingBefore(empty.join(t.common.comma))}<b>{t.account.send}</b>{t.account
+					.holdsNothingAfter}</span
 			>
 		</div>
 	{:else if chains.length && empty.length && !h?.loading}
-		<p class="small">Nothing on {empty.join(', ')}.</p>
+		<p class="small">{t.account.nothingOn(empty.join(t.common.comma))}</p>
 	{/if}
 	{#if h?.failed.length}
 		<div class="notice warn small" role="status">
-			Not reachable: {h.failed.join('; ')}. Change the endpoint in Settings.
+			{t.account.unreachable(h.failed.join(t.common.semicolon))}
 		</div>
 	{/if}
 	<div>
 		<button class="ghost small" onclick={() => (removeAccount(account), back())}
-			>Remove this account from this browser</button
+			>{t.account.remove}</button
 		>
 	</div>
 </div>

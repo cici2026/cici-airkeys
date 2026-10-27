@@ -2,6 +2,7 @@
 // which endpoint failed.
 import type { Chain, Token } from '../registry';
 import type { Account, SignRequest, Target } from '../protocol';
+import { t } from '../i18n/index.svelte';
 
 const TIMEOUT_MS = 20_000;
 
@@ -17,15 +18,14 @@ export function isHttpUrl(s: string): boolean {
 
 async function once(url: string, init: RequestInit): Promise<Response> {
 	const ctl = new AbortController();
-	const t = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+	const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 	try {
 		return await fetch(url, { ...init, signal: ctl.signal });
 	} catch (e) {
-		throw new Error(
-			`${new URL(url).host} did not answer${(e as Error).name === 'AbortError' ? ' in time' : ''}`
-		);
+		const host = new URL(url).host;
+		throw new Error((e as Error).name === 'AbortError' ? t.net.late(host) : t.net.noAnswer(host));
 	} finally {
-		clearTimeout(t);
+		clearTimeout(timer);
 	}
 }
 
@@ -96,9 +96,7 @@ export async function rpcBatch(
 	);
 	// an endpoint that does not take batches answers with one error, or anything else
 	if (!Array.isArray(out))
-		throw new Error(
-			`${new URL(url).host}: ${out?.error?.message ?? 'no answer to a batch of calls'}`
-		);
+		throw new Error(`${new URL(url).host}: ${out?.error?.message ?? t.net.noBatch}`);
 	const byId = new Map(out.map((r) => [r?.id, r?.result]));
 	return calls.map((_, i) => {
 		const r = byId.get(base + i);

@@ -29,7 +29,8 @@ export default defineConfig(({ command }) => ({
 						mode: 'hash',
 						directives: {
 							'default-src': ['none'],
-							'script-src': ['self'],
+							// the site pages' visit counter (src/lib/site/Analytics.svelte)
+							'script-src': ['self', 'https://tj.appsdata.org/api/script.js'],
 							'worker-src': ['self'],
 							'style-src': ['self', 'unsafe-inline'],
 							'img-src': ['self', 'data:', 'blob:'],

@@ -1,6 +1,7 @@
 <script lang="ts">
 	// A standard QR code of an address, for wallets and exchanges that pay to it.
 	import { encode } from 'uqr';
+	import { t } from '$lib/i18n/index.svelte';
 	let { value, size = 200 }: { value: string; size?: number } = $props();
 	const qr = $derived(encode(value, { ecc: 'M', border: 2 }));
 	const path = $derived(
@@ -14,7 +15,7 @@
 	height={size}
 	shape-rendering="crispEdges"
 	role="img"
-	aria-label="QR code of the address"
+	aria-label={t.ui.qrLabel}
 >
 	<rect width={qr.size} height={qr.size} fill="#f2f4f8" rx="1" />
 	<path d={path} fill="#0b0d11" />

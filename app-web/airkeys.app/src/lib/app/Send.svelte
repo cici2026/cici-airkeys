@@ -14,6 +14,7 @@
 	import Json from '$lib/ui/Json.svelte';
 	import CameraScan from '$lib/lumen/CameraScan.svelte';
 	import { onDestroy } from 'svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		account,
@@ -63,20 +64,22 @@
 			: []
 	);
 	const list = (assets: Asset[]) =>
-		assets.map((a) => `${formatShort(a.amount, a.decimals)} ${a.symbol}`).join(', ');
+		assets.map((a) => `${formatShort(a.amount, a.decimals)} ${a.symbol}`).join(t.common.comma);
 	/** "Base (≈ $30,512), Polygon (≈ $3,401), Arbitrum One (≈ $1,540) and 3 more chains":
 	 * the costliest first; a chain without prices is named with what it holds. */
 	const atStake = $derived.by(() => {
 		const rows = others
 			.map((o) => {
 				const vs = o.assets.map(valueOf);
-				const v = vs.every((x) => x === null) ? null : vs.reduce<number>((t, x) => t + (x ?? 0), 0);
+				const v = vs.every((x) => x === null)
+					? null
+					: vs.reduce<number>((sum, x) => sum + (x ?? 0), 0);
 				return { name: o.chain.name, v, text: v === null ? list(o.assets) : `≈ ${money(v)}` };
 			})
 			.sort((a, b) => (b.v ?? -1) - (a.v ?? -1));
-		const shown = rows.slice(0, 3).map((r) => `${r.name} (${r.text})`);
+		const shown = rows.slice(0, 3).map((r) => t.send.chainWith(r.name, r.text));
 		const more = rows.length - shown.length;
-		return shown.join(', ') + (more ? ` and ${more} more chain${more > 1 ? 's' : ''}` : '');
+		return shown.join(t.common.comma) + (more ? t.send.moreChains(more) : '');
 	});
 
 	async function review() {
@@ -85,15 +88,12 @@
 		try {
 			const recipient = parseAddress(account.network, to);
 			const amount = max ? null : parseUnits(amountText, asset.decimals);
-			if (!max && (amount === null || amount <= 0n)) throw new Error('Enter an amount.');
+			if (!max && (amount === null || amount <= 0n)) throw new Error(t.send.enterAmount);
 			if ((moveRest || account.network === 'bitcoin') && fresh === null)
-				throw new Error(
-					'Airkeys has not seen an unused account to move the rest to. On the phone, Connect → All 100 accounts, then scan it here.'
-				);
+				throw new Error(t.send.noFreshRest);
 			if ((moveRest || account.network === 'bitcoin') && !isIndex(fresh))
-				throw new Error('An account number is a whole number from 0 to 2147483647.');
-			if (moveRest && fresh === account.index)
-				throw new Error('Move the rest to another account number.');
+				throw new Error(t.send.badIndex);
+			if (moveRest && fresh === account.index) throw new Error(t.send.restElsewhere);
 			busy = true;
 			prepared = await prepare(account.network, {
 				from: account,
@@ -114,13 +114,9 @@
 
 	async function reviewMove() {
 		try {
-			if (fresh === null)
-				throw new Error(
-					'Airkeys has not seen an unused account to move to. On the phone, Connect → All 100 accounts, then scan it here.'
-				);
-			if (!isIndex(fresh))
-				throw new Error('An account number is a whole number from 0 to 2147483647.');
-			if (fresh === account.index) throw new Error('Move to another account number.');
+			if (fresh === null) throw new Error(t.send.noFreshMove);
+			if (!isIndex(fresh)) throw new Error(t.send.badIndex);
+			if (fresh === account.index) throw new Error(t.send.moveElsewhere);
 			busy = true;
 			prepared = await prepare(account.network, {
 				from: account,
@@ -144,9 +140,8 @@
 		problem = '';
 		try {
 			const m = parseMessage(bytes);
-			if (m.type !== 'signed') throw new Error('This code holds accounts, not a signed reply.');
-			if (m.signed.id !== prepared!.request.id)
-				throw new Error('This reply answers another request. Show the phone this request again.');
+			if (m.type !== 'signed') throw new Error(t.send.notSigned);
+			if (m.signed.id !== prepared!.request.id) throw new Error(t.send.otherRequest);
 			signed = m.signed;
 		} catch (e) {
 			problem = (e as Error).message;
@@ -180,7 +175,7 @@
 			clearTimeout(later);
 			later = setTimeout(() => refresh([account]), 4000);
 		} catch (e) {
-			problem = `Signed, but not broadcast: ${(e as Error).message}`;
+			problem = t.send.notBroadcast((e as Error).message);
 		} finally {
 			busy = false;
 		}
@@ -190,56 +185,56 @@
 <div class="stack narrow">
 	<div class="row">
 		<button class="ghost" onclick={back}
-			>← {move ? 'Home' : `${NETWORK_NAMES[account.network]} #${account.index}`}</button
+			>← {move ? t.common.home : `${NETWORK_NAMES[account.network]} #${account.index}`}</button
 		>
 	</div>
 	{#if move}
 		<h2>
-			Move everything{account.network === 'evm' ? ` on ${asset.chain.name}` : ''}
-			<span class="dim">from #{account.index}</span>
+			{t.send.moveTitle(account.network === 'evm' ? asset.chain.name : '')}
+			<span class="dim">{t.send.from(account.index)}</span>
 		</h2>
 	{:else}
-		<h2>Send {asset.symbol}{account.network === 'evm' ? ` on ${asset.chain.name}` : ''}</h2>
+		<h2>{t.send.sendTitle(asset.symbol, account.network === 'evm' ? asset.chain.name : '')}</h2>
 	{/if}
 
 	{#if step === 'form'}
 		<div class="card stack">
 			{#if move}
 				<div class="stack tight">
-					<span class="label">What moves</span>
-					<p>{list(holdings.filter((a) => a.amount > 0n)) || 'Nothing on this chain.'}</p>
+					<span class="label">{t.send.whatMoves}</span>
+					<p>{list(holdings.filter((a) => a.amount > 0n)) || t.send.nothingHere}</p>
 					<span class="small"
 						>{account.network === 'evm'
-							? `Every token, then the ${asset.chain.symbol} left after the network fees.`
-							: 'Every coin, less the network fee.'}</span
+							? t.send.movesEvm(asset.chain.symbol)
+							: t.send.movesBitcoin}</span
 					>
 				</div>
 				<label class="stack tight">
-					<span class="label">To</span>
+					<span class="label">{t.send.to}</span>
 					<span
-						>Your account #<input
+						>{t.send.yourAccount}<input
 							class="index"
 							type="number"
 							min="0"
 							value={fresh ?? ''}
 							oninput={(e) =>
 								(typed = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
-							aria-label="Account to move to"
-						/>, whose key is still hidden. The phone derives its address itself.</span
+							aria-label={t.send.moveToLabel}
+						/>{t.send.moveToAfter}</span
 					>
 				</label>
 			{:else}
 				<label class="stack tight">
-					<span class="label">To</span>
+					<span class="label">{t.send.to}</span>
 					<input
 						bind:value={to}
-						placeholder={account.network === 'evm' ? '0x…' : 'Address'}
+						placeholder={account.network === 'evm' ? '0x…' : t.send.address}
 						autocomplete="off"
 						spellcheck="false"
 					/>
 				</label>
 				<label class="stack tight">
-					<span class="label">Amount</span>
+					<span class="label">{t.send.amount}</span>
 					<div class="row">
 						<input
 							class="grow"
@@ -248,17 +243,21 @@
 							inputmode="decimal"
 							disabled={max}
 						/>
-						<button class:primary={max} aria-pressed={max} onclick={() => (max = !max)}>Max</button>
+						<button class:primary={max} aria-pressed={max} onclick={() => (max = !max)}
+							>{t.send.max}</button
+						>
 					</div>
 					<span class="small"
-						>Available: {formatUnits(asset.amount, asset.decimals)} {asset.symbol}</span
+						>{t.send.available(
+							`${formatUnits(asset.amount, asset.decimals)} ${asset.symbol}`
+						)}</span
 					>
 				</label>
 			{/if}
 			<div class="stack tight">
-				<span class="label" id="fee-label">Network fee</span>
+				<span class="label" id="fee-label">{t.send.fee}</span>
 				<div class="row speeds" role="group" aria-labelledby="fee-label">
-					{#each ['Slow', 'Normal', 'Fast'] as s, i (s)}
+					{#each [t.send.slow, t.send.normal, t.send.fast] as s, i (i)}
 						<button
 							class:primary={speed === i}
 							aria-pressed={speed === i}
@@ -271,108 +270,101 @@
 				<!-- nothing to choose: everything moves -->
 			{:else if account.network === 'bitcoin'}
 				<div class="stack tight">
-					<span class="label">Change</span>
+					<span class="label">{t.send.change}</span>
 					<p class="small">
-						A Bitcoin transaction spends whole coins, so every coin of this account is spent. What
-						is not sent comes back as change to account #<input
+						{t.send.changeBefore}<input
 							class="index"
 							type="number"
 							min="0"
 							value={fresh ?? ''}
 							oninput={(e) =>
 								(typed = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
-							aria-label="Account for the change"
-						/>, whose key is still hidden.
+							aria-label={t.send.changeLabel}
+						/>{t.send.changeAfter}
 					</p>
 				</div>
 			{:else}
 				<fieldset class="stack tight">
-					<legend class="label">The rest of this account</legend>
+					<legend class="label">{t.send.rest}</legend>
 					<label class="choice" class:on={moveRest}>
 						<input type="radio" name="rest" value={true} bind:group={moveRest} />
 						<span class="grow">
 							<b
-								>Move it to account #<input
+								>{t.send.moveRest}<input
 									class="index"
 									type="number"
 									min="0"
 									value={fresh ?? ''}
 									oninput={(e) =>
 										(typed = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
-									aria-label="Fresh account number"
+									aria-label={t.send.freshLabel}
 								/></b
 							>
-							<span class="pill safe">Recommended</span>
-							<span class="small"
-								>This send reveals the account's public key. Everything else it holds on {asset
-									.chain.name} moves, in the same signing, to an account whose key is still hidden.</span
-							>
+							<span class="pill safe">{t.send.recommended}</span>
+							<span class="small">{t.send.moveRestNote(asset.chain.name)}</span>
 						</span>
 					</label>
 					<label class="choice" class:on={!moveRest}>
 						<input type="radio" name="rest" value={false} bind:group={moveRest} />
 						<span class="grow">
-							<b>Leave it here</b>
-							<span class="small"
-								>Only the amount above is sent. The rest stays at this address, whose public key
-								this send reveals.</span
-							>
+							<b>{t.send.leave}</b>
+							<span class="small">{t.send.leaveNote}</span>
 						</span>
 					</label>
 				</fieldset>
 			{/if}
 			{#if others.length}<div class="notice warn small">
-					This send reveals this account's key on every EVM chain — and it holds more on {atStake}.
-					After this send, Home lists them under <b>To move</b>: one signing per chain.
+					{t.send.elsewhereBefore(atStake)}<b>{t.send.toMove}</b>{t.send.elsewhereAfter}
 				</div>{/if}
 			{#if exposure === 'exposed' && !move}<div class="notice warn small">
-					This account's key is already exposed. Moving everything to a fresh account is the safe
-					choice.
+					{t.send.alreadyExposed}
 				</div>{/if}
 			{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
 			<button class="primary" onclick={review} disabled={busy}
-				>{busy ? 'Preparing…' : 'Review'}</button
+				>{busy ? t.send.preparing : t.send.review}</button
 			>
 		</div>
 	{:else if step === 'review' && prepared}
 		<div class="card stack">
-			<div class="label">The phone will sign</div>
+			<div class="label">{t.send.phoneWillSign}</div>
 			<ol class="lines">
 				{#each prepared.summary as line, i (i)}<li class="mono">{line}</li>{/each}
 			</ol>
-			<div class="row"><span class="dim grow">Network fee, at most</span><b>{prepared.fee}</b></div>
 			<div class="row">
-				<button onclick={() => (step = 'form')}>Edit</button>
-				<button class="primary grow" onclick={() => (step = 'request')}>Show to the phone</button>
+				<span class="dim grow">{t.send.feeAtMost}</span><b>{prepared.fee}</b>
+			</div>
+			<div class="row">
+				<button onclick={() => (step = 'form')}>{t.send.edit}</button>
+				<button class="primary grow" onclick={() => (step = 'request')}>{t.send.show}</button>
 			</div>
 		</div>
 	{:else if step === 'request' && prepared}
 		<p class="dim">
-			On the phone: <b>Scan request</b>, point it at this code, check every line, then hold to sign.
+			{t.send.requestBefore}<b>{t.send.scanRequest}</b>{t.send.requestAfter}
 		</p>
 		<CodeCanvas data={encode(prepared.request)} name="airkeys-sign.json" />
 		<div class="row">
-			<button onclick={() => (step = 'review')}>Back</button>
-			<button class="primary grow" onclick={() => (step = 'reply')}>Scan the phone's reply</button>
+			<button onclick={() => (step = 'review')}>{t.send.back}</button>
+			<button class="primary grow" onclick={() => (step = 'reply')}>{t.send.scanReply}</button>
 		</div>
 		<details class="small">
-			<summary>What this code says</summary>
+			<summary>{t.send.codeSays}</summary>
 			<Json value={prepared.request} />
 		</details>
 	{:else if step === 'reply'}
-		<p class="dim">On the phone, after signing: hold its code in front of this camera.</p>
+		<p class="dim">{t.send.replyLead}</p>
 		<CameraScan onmessage={replied} />
 		{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
-		<div><button onclick={() => (step = 'request')}>Show the request again</button></div>
+		<div><button onclick={() => (step = 'request')}>{t.send.showAgain}</button></div>
 	{:else if step === 'done'}
 		<div class="card stack">
 			{#if busy}
-				<p role="status">Broadcasting…</p>
+				<p role="status">{t.send.broadcasting}</p>
 			{:else}
 				{#each results as r, i (i)}
 					{@const link = r.hash ? explorerLink(asset.chain.explorer.tx, r.hash) : null}
 					<div class="row">
-						<span class="pill {r.ok ? 'safe' : 'warn'}">{r.ok ? 'Sent' : 'Refused'}</span>
+						<span class="pill {r.ok ? 'safe' : 'warn'}">{r.ok ? t.send.sent : t.send.refused}</span>
 						{#if link}<a class="mono small grow hash" href={link} target="_blank" rel="noreferrer"
 								>{r.hash}</a
 							>{:else if r.hash}<span class="mono small grow hash">{r.hash}</span>{/if}
@@ -381,9 +373,9 @@
 				{/each}
 				{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
 				{#if problem || results.some((r) => !r.ok)}
-					<button onclick={publish}>Broadcast again</button>
+					<button onclick={publish}>{t.send.broadcastAgain}</button>
 				{/if}
-				<button class="primary" onclick={back}>Done</button>
+				<button class="primary" onclick={back}>{t.send.done}</button>
 			{/if}
 		</div>
 	{/if}

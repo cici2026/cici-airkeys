@@ -4,6 +4,7 @@ import { parseEvm } from '../addresses';
 import { signRequest } from '../protocol';
 import { formatUnits } from '../units';
 import type { Chain, Token } from '../registry';
+import { t } from '../i18n/index.svelte';
 import {
 	own,
 	rpc,
@@ -160,14 +161,11 @@ const tokenRef = (t: Token) => ({ address: t.address, symbol: t.symbol, decimals
 export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
 	const from = i.from.address;
-	if (i.moveAll && i.moveRest === null)
-		throw new Error('Moving everything needs an account to go to.');
+	if (i.moveAll && i.moveRest === null) throw new Error(t.chains.needsAccount);
 	const to = i.moveAll ? '' : parseEvm(i.to);
 	// the phone refuses it too: coins sent back would sit behind the key this send reveals
 	if (!i.moveAll && to.toLowerCase() === from.toLowerCase())
-		throw new Error(
-			'Send to another address: coins sent back to this one would sit behind a revealed key.'
-		);
+		throw new Error(t.chains.sendElsewhere);
 	// a stand-in recipient for estimates of transfers to an account named by number: a random
 	// address, so a new holder — the estimate covers the costlier first deposit (a well-known
 	// address may already hold the token, and would under-estimate by ~17,000 gas)
@@ -211,13 +209,13 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		const amount = i.amount ?? i.asset.amount;
 		if (amount <= 0n || amount > i.asset.amount)
 			throw new Error(
-				`The account holds ${formatUnits(i.asset.amount, i.asset.decimals)} ${i.asset.symbol}.`
+				t.chains.holds(`${formatUnits(i.asset.amount, i.asset.decimals)} ${i.asset.symbol}`)
 			);
 		const gas = await gasFor(chain, from, i.asset.token.address, 0n, transferData(to, amount));
 		push(
 			{ to: { address: to }, amount: amount.toString(), token: tokenRef(i.asset.token) },
 			gas,
-			`Send ${formatUnits(amount, i.asset.decimals)} ${i.asset.symbol} to ${to}`
+			t.chains.sendTo(`${formatUnits(amount, i.asset.decimals)} ${i.asset.symbol}`, to)
 		);
 		if (i.moveRest !== null && amount < i.asset.amount)
 			moving.unshift({ ...i.asset, amount: i.asset.amount - amount });
@@ -227,15 +225,15 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		const later =
 			BigInt(moving.length) * cost(100_000) + (i.moveRest !== null ? cost(coinGas) : 0n);
 		const amount = i.amount ?? balance - cost(gas) - later;
-		if (amount <= 0n) throw new Error('The balance does not cover the network fee.');
+		if (amount <= 0n) throw new Error(t.chains.feeNotCovered);
 		if (amount + cost(gas) > balance)
 			throw new Error(
-				`The account holds ${formatUnits(balance, chain.decimals)} ${chain.symbol}: too little for this amount and its fee.`
+				t.chains.tooLittle(`${formatUnits(balance, chain.decimals)} ${chain.symbol}`)
 			);
 		push(
 			{ to: { address: to }, amount: amount.toString() },
 			gas,
-			`Send ${formatUnits(amount, chain.decimals)} ${chain.symbol} to ${to}`
+			t.chains.sendTo(`${formatUnits(amount, chain.decimals)} ${chain.symbol}`, to)
 		);
 	}
 	for (const a of moving) {
@@ -243,7 +241,7 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		push(
 			{ to: own(i.moveRest!), amount: a.amount.toString(), token: tokenRef(a.token!) },
 			gas,
-			`Move ${formatUnits(a.amount, a.decimals)} ${a.symbol} to your account #${i.moveRest}`
+			t.chains.moveTo(`${formatUnits(a.amount, a.decimals)} ${a.symbol}`, i.moveRest!)
 		);
 	}
 	if (i.moveRest !== null) {
@@ -252,13 +250,16 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 			push(
 				{ to: own(i.moveRest), amount: left.toString() },
 				coinGas,
-				`Move ${formatUnits(left, chain.decimals)} ${chain.symbol} to your account #${i.moveRest}`
+				t.chains.moveTo(`${formatUnits(left, chain.decimals)} ${chain.symbol}`, i.moveRest)
 			);
 	}
-	if (!txs.length) throw new Error('Nothing to move: the balance does not cover a network fee.');
+	if (!txs.length) throw new Error(t.chains.nothingToMove);
 	if (room() < 0n)
 		throw new Error(
-			`The fees need up to ${formatUnits(fees, chain.decimals)} ${chain.symbol}; the account holds ${formatUnits(balance, chain.decimals)}.`
+			t.chains.feesExceed(
+				`${formatUnits(fees, chain.decimals)} ${chain.symbol}`,
+				formatUnits(balance, chain.decimals)
+			)
 		);
 	const request = signRequest('evm', i.from, { chainId: chain.chainId, txs });
 	return { request, summary, fee: `≤ ${formatUnits(fees, chain.decimals)} ${chain.symbol}` };

@@ -7,7 +7,8 @@
 	import Connect from '$lib/app/Connect.svelte';
 	import Settings from '$lib/app/Settings.svelte';
 	import Mark from '$lib/ui/Mark.svelte';
-	import { save, store } from '$lib/state.svelte';
+	import { save, setLang, store } from '$lib/state.svelte';
+	import { htmlLang, lang, t } from '$lib/i18n/index.svelte';
 
 	/** Mainnet or testnet: never both on screen. Switching starts again from the accounts. */
 	function mode(testnet: boolean) {
@@ -28,46 +29,63 @@
 	const go = (v: View) => ((view = v), scrollTo(0, 0));
 	/** Where the logo leads: the site, or nowhere inside the extension. */
 	let { home = '../' }: { home?: string } = $props();
+
+	const other = $derived(lang.current === 'en' ? 'zh' : 'en');
+	// the page's language follows the app's; the page left (to the site) gets its own back
+	$effect(() => {
+		const root = document.documentElement;
+		const before = root.lang;
+		root.lang = htmlLang(lang.current);
+		return () => (root.lang = before);
+	});
 </script>
 
 <svelte:head><title>Airkeys</title></svelte:head>
 
 <header>
-	<!-- the name is hidden on a phone: the link keeps it -->
-	<a class="brand" href={home} aria-label="Airkeys"><Mark size={30} /><b>Airkeys</b></a>
-	<div class="mode" role="group" aria-label="Networks shown">
+	<!-- the bar spans the window; what is on it lines up with the site's column -->
+	<div class="bar">
+		<!-- the name is hidden on a phone: the link keeps it -->
+		<a class="brand" href={home} aria-label="Airkeys"><Mark size={30} /><b>Airkeys</b></a>
+		<div class="mode" role="group" aria-label={t.app.networksShown}>
+			<button
+				class:on={!store.settings.testnet}
+				aria-pressed={!store.settings.testnet}
+				onclick={() => mode(false)}>{t.common.mainnet}</button
+			>
+			<button
+				class:on={!!store.settings.testnet}
+				aria-pressed={!!store.settings.testnet}
+				class="test"
+				onclick={() => mode(true)}>{t.common.testnet}</button
+			>
+		</div>
+		<!-- the other language, named in itself -->
 		<button
-			class:on={!store.settings.testnet}
-			aria-pressed={!store.settings.testnet}
-			onclick={() => mode(false)}>Mainnet</button
+			class="lang"
+			lang={htmlLang(other)}
+			title={t.app.switchLang}
+			onclick={() => setLang(other)}>{t.app.otherLang}</button
 		>
-		<button
-			class:on={!!store.settings.testnet}
-			aria-pressed={!!store.settings.testnet}
-			class="test"
-			onclick={() => mode(true)}>Testnet</button
-		>
+		<nav>
+			<button
+				class:active={view.name === 'wallet'}
+				class="ghost"
+				onclick={() => go({ name: 'wallet' })}>{t.common.home}</button
+			>
+			<button
+				class:active={view.name === 'settings'}
+				class="ghost"
+				onclick={() => go({ name: 'settings' })}>{t.app.settings}</button
+			>
+			<button class="primary" onclick={() => go({ name: 'connect' })}>{t.app.scanPhone}</button>
+		</nav>
 	</div>
-	<nav>
-		<button
-			class:active={view.name === 'wallet'}
-			class="ghost"
-			onclick={() => go({ name: 'wallet' })}>Home</button
-		>
-		<button
-			class:active={view.name === 'settings'}
-			class="ghost"
-			onclick={() => go({ name: 'settings' })}>Settings</button
-		>
-		<button class="primary" onclick={() => go({ name: 'connect' })}>Scan phone</button>
-	</nav>
+	<!-- in the sticky header, so it sits under the bar whatever the bar's height -->
+	{#if store.settings.testnet}
+		<div class="testnet">{t.app.testnetBanner}</div>
+	{/if}
 </header>
-
-{#if store.settings.testnet}
-	<div class="testnet">
-		Testnet — coins on test networks have no value. Real balances are under Mainnet.
-	</div>
-{/if}
 
 <main>
 	<!-- a live region from the start, so a reader announces what appears in it -->
@@ -112,13 +130,18 @@
 		position: sticky;
 		top: 0;
 		z-index: 2;
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		padding: 14px 24px;
 		background: color-mix(in srgb, var(--bg) 88%, transparent);
 		backdrop-filter: blur(10px);
 		border-bottom: 1px solid var(--stroke);
+	}
+	/* the landing page's column (Landing.svelte .wrap) */
+	.bar {
+		width: min(1120px, 100% - 40px);
+		margin-inline: auto;
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		padding-block: 14px;
 	}
 	.brand {
 		display: flex;
@@ -152,10 +175,15 @@
 		background: color-mix(in srgb, var(--warn) 22%, var(--raised));
 		color: var(--warn);
 	}
+	.lang {
+		padding: 8px 12px;
+		border-radius: 10px;
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--dim);
+		white-space: nowrap;
+	}
 	.testnet {
-		position: sticky;
-		top: 61px;
-		z-index: 1;
 		padding: 8px 24px;
 		text-align: center;
 		font-size: 13px;
@@ -173,20 +201,25 @@
 		color: var(--text);
 		background: var(--raised);
 	}
+	/* the header's column, so pages start under the logo; a page is at most 920px wide */
 	main {
-		max-width: 920px;
+		width: min(1120px, 100% - 40px);
 		margin: 0 auto;
-		padding: 28px 24px 80px;
+		padding: 28px 0 80px;
+	}
+	main > :global(*) {
+		max-width: 920px;
 	}
 	.toast {
 		margin-bottom: 16px;
 	}
-	@media (max-width: 560px) {
-		/* two rows: the brand and the mode; then the three places, side by side */
-		header {
+	@media (max-width: 680px) {
+		/* two rows, where one does not fit: the brand, the mode and the language; then the three
+		   places, side by side */
+		.bar {
 			flex-wrap: wrap;
 			gap: 10px;
-			padding: 10px 14px;
+			padding-block: 10px;
 		}
 		.mode {
 			margin-left: auto;
@@ -201,14 +234,20 @@
 			white-space: nowrap;
 			padding-inline: 8px;
 		}
-		.testnet {
-			top: 108px;
-		}
 		.brand b {
 			display: none;
 		}
+	}
+	@media (max-width: 640px) {
+		/* the site's narrower gutter */
+		.bar {
+			width: min(1120px, 100% - 32px);
+		}
+	}
+	@media (max-width: 560px) {
 		main {
-			padding: 18px 14px 60px;
+			width: min(1120px, 100% - 32px);
+			padding: 18px 0 60px;
 		}
 	}
 </style>

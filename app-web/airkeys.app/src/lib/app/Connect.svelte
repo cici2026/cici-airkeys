@@ -3,6 +3,7 @@
 	import { parseMessage } from '$lib/protocol';
 	import { NETWORK_NAMES } from '$lib/registry';
 	import { addAccounts, conflicts, replaceAccounts, store } from '$lib/state.svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let { done }: { done: (message: string) => void } = $props();
 	let problem = $state('');
@@ -11,26 +12,25 @@
 	function received(bytes: Uint8Array) {
 		try {
 			const m = parseMessage(bytes);
-			if (m.type !== 'accounts')
-				throw new Error('This is a signed reply, not accounts. On the phone, tap Connect.');
+			if (m.type !== 'accounts') throw new Error(t.connect.notAccounts);
 			// an account number this browser knows with another address: another wallet, or the
 			// same phrase under another passphrase. The two are never mixed.
 			const clash = conflicts(m.accounts);
 			if (clash.length) {
 				const [a] = clash;
 				const replace = confirm(
-					`These accounts are of another wallet (or another passphrase): ${NETWORK_NAMES[a.network]} account #${a.index} has another address here.\n\nReplace the ${store.accounts.length} account${store.accounts.length > 1 ? 's' : ''} in this browser with this wallet's? The funds are untouched.`
+					t.connect.replace(NETWORK_NAMES[a.network], a.index, store.accounts.length)
 				);
 				if (!replace) {
-					done('Nothing added: this browser keeps the accounts it had.');
+					done(t.connect.kept);
 					return;
 				}
 				const n = replaceAccounts(m.accounts);
-				done(`Replaced the accounts here with this wallet's ${n} account${n > 1 ? 's' : ''}.`);
+				done(t.connect.replaced(n));
 				return;
 			}
 			const n = addAccounts(m.accounts);
-			done(n ? `Added ${n} account${n > 1 ? 's' : ''}.` : 'These accounts were already here.');
+			done(n ? t.connect.added(n) : t.connect.already);
 		} catch (e) {
 			problem = (e as Error).message;
 		}
@@ -38,17 +38,18 @@
 </script>
 
 <div class="stack narrow">
-	<h2>Scan the phone</h2>
+	<h2>{t.connect.title}</h2>
 	<p class="dim">
-		On the phone: <b>Connect</b> → choose networks → <b>Show code</b>. Hold it in front of this
-		camera.
+		{t.connect.leadBefore}<b>{t.connect.leadConnect}</b>{t.connect.leadMiddle}<b
+			>{t.connect.leadShow}</b
+		>{t.connect.leadAfter}
 	</p>
 	{#key key}
 		<CameraScan onmessage={received} />
 	{/key}
 	{#if problem}
 		<div class="notice danger" role="alert">{problem}</div>
-		<div><button onclick={() => ((problem = ''), key++)}>Scan again</button></div>
+		<div><button onclick={() => ((problem = ''), key++)}>{t.connect.again}</button></div>
 	{/if}
 </div>
 

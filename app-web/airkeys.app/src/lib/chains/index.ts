@@ -3,6 +3,7 @@ import type { Chain, Network } from '../registry';
 import { chainsOf } from '../state.svelte';
 import * as bitcoin from './bitcoin';
 import * as evm from './evm';
+import { t } from '../i18n/index.svelte';
 import {
 	mapLimit,
 	type Asset,
@@ -73,7 +74,7 @@ export async function load(network: Network, addresses: string[]): Promise<Map<s
 			const r = s.status === 'fulfilled' ? s.value.get(a) : undefined;
 			if (!r) {
 				look.failed.push(
-					`${chains[i].name}: ${s.status === 'rejected' ? (s.reason as Error).message : 'no answer'}`
+					`${chains[i].name}: ${s.status === 'rejected' ? (s.reason as Error).message : t.common.noAnswer}`
 				);
 				unsure = true;
 				return;

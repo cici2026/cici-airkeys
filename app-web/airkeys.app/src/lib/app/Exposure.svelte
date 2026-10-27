@@ -1,27 +1,24 @@
 <script lang="ts">
 	import type { Exposure } from '$lib/chains';
+	import { t } from '$lib/i18n/index.svelte';
 	let { exposure, loading = false }: { exposure: Exposure; loading?: boolean } = $props();
 </script>
 
 {#if exposure === 'hidden'}
-	<span class="pill safe" title="The public key behind this address has never been revealed">
+	<span class="pill safe" title={t.exposure.hiddenTitle}>
 		<svg viewBox="0 0 24 24"
 			><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg
-		>Key hidden
+		>{t.exposure.hidden}
 	</span>
 {:else if exposure === 'exposed'}
-	<span class="pill warn" title="This address has sent before: its public key is on chain">
-		<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></svg>Key
-		exposed
+	<span class="pill warn" title={t.exposure.exposedTitle}>
+		<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></svg>{t
+			.exposure.exposed}
 	</span>
 {:else if loading}
-	<span class="pill dim">Checking…</span>
+	<span class="pill dim">{t.exposure.checking}</span>
 {:else}
-	<span
-		class="pill dim"
-		title="An endpoint did not answer, so it is not known whether this key was revealed"
-		>Unknown</span
-	>
+	<span class="pill dim" title={t.exposure.unknownTitle}>{t.exposure.unknown}</span>
 {/if}
 
 <style>

@@ -7,6 +7,7 @@ import { BTC_DUST, BTC_OUTPUT_BYTES, parseBitcoin, paysSameKey } from '../addres
 import { encode, MAX_MESSAGE, signRequest } from '../protocol';
 import { formatUnits } from '../units';
 import type { Chain } from '../registry';
+import { t } from '../i18n/index.svelte';
 import {
 	getJson,
 	getText,
@@ -128,15 +129,11 @@ export function vsize(inputs: number, outputs: number[]): number {
 
 export async function prepare(i: SendIntent): Promise<Prepared> {
 	const { chain } = i.asset;
-	if (i.moveAll && i.moveRest === null)
-		throw new Error('Moving everything needs an account to go to.');
+	if (i.moveAll && i.moveRest === null) throw new Error(t.chains.needsAccount);
 	// moving everything pays no one: the one output is the fresh account's
 	const recipient = i.moveAll ? null : parseBitcoin(i.to);
 	// the phone refuses it too, in any spelling of the same key
-	if (!i.moveAll && paysSameKey(i.from.address, i.to))
-		throw new Error(
-			'Send to another address: coins sent back to this one would sit behind a revealed key.'
-		);
+	if (!i.moveAll && paysSameKey(i.from.address, i.to)) throw new Error(t.chains.sendElsewhere);
 	const coins = (amount: bigint) => `${formatUnits(amount, chain.decimals)} ${chain.symbol}`;
 	const [utxos, rates] = await Promise.all([
 		esplora(chain, (api) =>
@@ -146,11 +143,8 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 		),
 		feeRates(chain)
 	]);
-	if (!utxos.length) throw new Error('This account holds no coins.');
-	if (utxos.length > MAX_INPUTS)
-		throw new Error(
-			`This account holds ${utxos.length} coins, and a request spends every coin of the account: the phone signs at most ${MAX_INPUTS} at once.`
-		);
+	if (!utxos.length) throw new Error(t.chains.noCoins);
+	if (utxos.length > MAX_INPUTS) throw new Error(t.chains.tooManyCoins(utxos.length, MAX_INPUTS));
 	// each previous transaction once, a few at a time
 	const txids = [...new Set(utxos.map((u) => u.txid))];
 	const hexes = await mapLimit(txids, PARALLEL, async (txid) =>
@@ -181,39 +175,28 @@ export async function prepare(i: SendIntent): Promise<Prepared> {
 			// too little to keep: it goes to the fee — which must still pay for the transaction
 			rest = 0n;
 			if (total - amount < feeFor([pay]))
-				throw new Error(
-					`The account holds ${coins(total)}: too little for this amount and its fee at ${rate} sat/vB.`
-				);
+				throw new Error(t.chains.tooLittleAt(coins(total), String(rate)));
 		}
 	}
 	const fee = total - amount - rest;
-	if (amount < BigInt(BTC_DUST[kind]))
-		throw new Error(`The amount is below the network's dust limit of ${BTC_DUST[kind]} sat.`);
-	if (fee <= 0n || amount + fee > total)
-		throw new Error(`The account holds ${coins(total)}: too little for this amount and its fee.`);
-	if (rest > 0n && i.moveRest === null) throw new Error('The change needs an account to go to.');
+	if (amount < BigInt(BTC_DUST[kind])) throw new Error(t.chains.dust(BTC_DUST[kind]));
+	if (fee <= 0n || amount + fee > total) throw new Error(t.chains.tooLittle(coins(total)));
+	if (rest > 0n && i.moveRest === null) throw new Error(t.chains.changeNeedsAccount);
 
 	const outputs: Record<string, unknown>[] = [
 		{ to: i.moveAll ? own(i.moveRest!) : { address: i.to }, amount: amount.toString() }
 	];
 	const summary = [
-		i.moveAll
-			? `Move ${coins(amount)} to your account #${i.moveRest}`
-			: `Send ${coins(amount)} to ${i.to}`
+		i.moveAll ? t.chains.moveTo(coins(amount), i.moveRest!) : t.chains.sendTo(coins(amount), i.to)
 	];
 	if (rest > 0n) {
 		outputs.push({ to: own(i.moveRest!), amount: rest.toString() });
-		summary.push(`Move the change, ${coins(rest)}, to your account #${i.moveRest}`);
+		summary.push(t.chains.moveChange(coins(rest), i.moveRest!));
 	}
-	summary.push(
-		`Spend all ${inputs.length} coin${inputs.length > 1 ? 's' : ''} of this account (${coins(total)})`
-	);
+	summary.push(t.chains.spendAll(inputs.length, coins(total)));
 	const request = signRequest('bitcoin', i.from, { inputs, outputs });
 	// the previous transactions travel whole, and the phone reads at most 1 MiB
-	if (encode(request).length > MAX_MESSAGE)
-		throw new Error(
-			"The coins' previous transactions are too large for one request: it would be over 1 MiB, the most the phone reads."
-		);
+	if (encode(request).length > MAX_MESSAGE) throw new Error(t.chains.tooLarge);
 	return { request, summary, fee: `${coins(fee)} (${rate} sat/vB)` };
 }
 

@@ -3,6 +3,7 @@
 // fields, wrong types or another version are refused.
 import { NETWORKS, type Network } from './registry';
 import { parseAddress } from './addresses';
+import { t } from './i18n/index.svelte';
 
 export const VERSION = 1;
 /** Every account number the phone offers (100) on both networks (PROTOCOL §4). */
@@ -54,18 +55,22 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 export const isIndex = (v: unknown): v is number =>
 	Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 0x7fffffff;
 
-function only(o: Record<string, unknown>, keys: string[], what: string) {
+function only(
+	o: Record<string, unknown>,
+	keys: string[],
+	what: keyof typeof t.protocol.unknownField
+) {
 	const extra = Object.keys(o).filter((k) => !keys.includes(k));
-	if (extra.length) throw new Refused(`The ${what} has an unknown field “${extra[0]}”.`);
+	if (extra.length) throw new Refused(t.protocol.unknownField[what](extra[0]));
 }
 
 function account(v: unknown): Account {
-	if (!isObject(v)) throw new Refused('An account is not an object.');
+	if (!isObject(v)) throw new Refused(t.protocol.accountNotObject);
 	only(v, ['network', 'index', 'address'], 'account');
 	if (!NETWORKS.includes(v.network as Network))
-		throw new Refused(`“${String(v.network)}” is not a network.`);
-	if (!isIndex(v.index)) throw new Refused('An account number is not valid.');
-	if (typeof v.address !== 'string' || !v.address) throw new Refused('An account has no address.');
+		throw new Refused(t.protocol.notNetwork(String(v.network)));
+	if (!isIndex(v.index)) throw new Refused(t.protocol.badIndex);
+	if (typeof v.address !== 'string' || !v.address) throw new Refused(t.protocol.noAddress);
 	// as strict as the phone: an address of its network, spelled the way the phone spells it
 	let canonical = '';
 	try {
@@ -73,7 +78,7 @@ function account(v: unknown): Account {
 	} catch {
 		/* refused below */
 	}
-	if (canonical !== v.address) throw new Refused('An account address is not valid.');
+	if (canonical !== v.address) throw new Refused(t.protocol.badAddress);
 	return { network: v.network as Network, index: v.index, address: v.address };
 }
 
@@ -81,7 +86,7 @@ function account(v: unknown): Account {
 function accountList(list: unknown[]): Account[] {
 	const accounts = list.map(account);
 	const seen = new Set(accounts.map((a) => `${a.network}:${a.index}`));
-	if (seen.size !== accounts.length) throw new Refused('An account is listed twice.');
+	if (seen.size !== accounts.length) throw new Refused(t.protocol.twice);
 	return accounts;
 }
 
@@ -90,24 +95,20 @@ const RAW: Record<Network, RegExp> = { bitcoin: /^(?:[0-9a-f]{2})+$/, evm: /^0x(
 
 /** Parses a message the phone sent (§4, §6). */
 export function parseMessage(bytes: Uint8Array): Incoming {
-	if (bytes.length > MAX_MESSAGE) throw new Refused('The message is larger than 1 MiB.');
+	if (bytes.length > MAX_MESSAGE) throw new Refused(t.protocol.tooLarge);
 	let v: unknown;
 	try {
 		v = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
 	} catch {
-		throw new Refused('This is not an Airkeys message.');
+		throw new Refused(t.protocol.notAirkeys);
 	}
-	if (!isObject(v) || typeof v.airkeys !== 'number')
-		throw new Refused('This is not an Airkeys message.');
-	if (v.airkeys !== VERSION)
-		throw new Refused(
-			`This message uses Airkeys protocol version ${v.airkeys}. This app speaks version ${VERSION}.`
-		);
+	if (!isObject(v) || typeof v.airkeys !== 'number') throw new Refused(t.protocol.notAirkeys);
+	if (v.airkeys !== VERSION) throw new Refused(t.protocol.version(v.airkeys, VERSION));
 	switch (v.type) {
 		case 'accounts': {
 			only(v, ['airkeys', 'type', 'accounts'], 'message');
 			if (!Array.isArray(v.accounts) || v.accounts.length < 1 || v.accounts.length > MAX_ACCOUNTS)
-				throw new Refused(`An accounts message lists 1 to ${MAX_ACCOUNTS} accounts.`);
+				throw new Refused(t.protocol.accountCount(MAX_ACCOUNTS));
 			return { type: 'accounts', accounts: accountList(v.accounts) };
 		}
 		case 'signed': {
@@ -121,25 +122,24 @@ export function parseMessage(bytes: Uint8Array): Incoming {
 				v.txs.length > 16 ||
 				(v.accounts !== undefined && !Array.isArray(v.accounts))
 			)
-				throw new Refused('The signed message is not valid.');
+				throw new Refused(t.protocol.badSigned);
 			const network = v.network as Network;
-			const txs = v.txs.map((t) => {
-				if (!isObject(t) || typeof t.hash !== 'string' || typeof t.raw !== 'string')
-					throw new Refused('A signed transaction is not valid.');
-				only(t, ['hash', 'raw'], 'signed transaction');
-				if (!HASH[network].test(t.hash) || !RAW[network].test(t.raw))
-					throw new Refused('A signed transaction is not valid.');
-				return { hash: t.hash, raw: t.raw };
+			const txs = v.txs.map((x) => {
+				if (!isObject(x) || typeof x.hash !== 'string' || typeof x.raw !== 'string')
+					throw new Refused(t.protocol.badTx);
+				only(x, ['hash', 'raw'], 'tx');
+				if (!HASH[network].test(x.hash) || !RAW[network].test(x.raw))
+					throw new Refused(t.protocol.badTx);
+				return { hash: x.hash, raw: x.raw };
 			});
 			const accounts = accountList((v.accounts as unknown[] | undefined) ?? []);
-			if (accounts.some((a) => a.network !== network))
-				throw new Refused('The signed message names an account of another network.');
+			if (accounts.some((a) => a.network !== network)) throw new Refused(t.protocol.otherNetwork);
 			return { type: 'signed', signed: { id: v.id, network, txs, accounts } };
 		}
 		case 'sign':
-			throw new Refused('This is a request from a web app, not a reply from the phone.');
+			throw new Refused(t.protocol.isRequest);
 		default:
-			throw new Refused(`“${String(v.type)}” is not an Airkeys message type.`);
+			throw new Refused(t.protocol.badType(String(v.type)));
 	}
 }
 

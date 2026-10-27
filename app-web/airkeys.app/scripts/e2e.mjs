@@ -369,6 +369,13 @@ try {
 		after.accounts.some((a) => a.network === 'evm' && a.index === 1 && a.address === a1),
 		'the web app now knows account #1 from the reply'
 	);
+	// the asset panel once every balance is read (a screenshot for the site, when SHOTS is set)
+	if (process.env.SHOTS) {
+		await click('Home');
+		await until('balances read', async () => !/Reading, \d+ to go/.test(await text()), 120000);
+		await sleep(1500);
+		await shot('w8-home');
+	}
 } catch (e) {
 	failures++;
 	console.log('FAIL ', e.message);

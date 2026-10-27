@@ -13,6 +13,7 @@
 		type ChainHit,
 		type ChainOffer
 	} from '$lib/chainData';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let problem = $state('');
 	let fxProblem = $state('');
@@ -23,7 +24,7 @@
 		try {
 			await loadCurrencies();
 		} catch (e) {
-			fxProblem = `The currencies did not load: ${(e as Error).message}. Totals stay in US dollars.`;
+			fxProblem = t.settings.currenciesFailed((e as Error).message);
 		}
 	}
 	function setCurrency(code: string) {
@@ -35,7 +36,7 @@
 	function setFx() {
 		const url = fxText.trim();
 		if (url && !isHttpUrl(url)) {
-			fxProblem = 'Enter a web address: http://… or https://…';
+			fxProblem = t.settings.enterUrl;
 			return;
 		}
 		fxProblem = '';
@@ -70,7 +71,7 @@
 			all = await chainIndex();
 			searching = '';
 		} catch {
-			searching = `The chain list at ${new URL(CHAIN_DATA).host} did not load. Enter the chain by hand below.`;
+			searching = t.settings.listFailed(new URL(CHAIN_DATA).host);
 		}
 	}
 
@@ -80,7 +81,7 @@
 		loadingOffer = true;
 		try {
 			offer = await chainDetails(hit.chainId);
-			picked = Object.fromEntries(offer.tokens.map((t) => [t.address, true]));
+			picked = Object.fromEntries(offer.tokens.map((x) => [x.address, true]));
 		} catch (e) {
 			problem = (e as Error).message;
 		} finally {
@@ -90,10 +91,10 @@
 
 	function addOffer() {
 		if (!offer) return;
-		const tokens: Token[] = offer.tokens.filter((t) => picked[t.address]);
+		const tokens: Token[] = offer.tokens.filter((x) => picked[x.address]);
 		store.settings.chains.push({ ...offer.chain, tokens });
 		save();
-		added = `Added ${offer.chain.name}${offer.chain.testnet ? ' (a testnet: switch to Testnet to see it)' : ''}. The phone signs for it, and warns that it is not in its own list.`;
+		added = t.settings.addedChain(offer.chain.name, !!offer.chain.testnet);
 		offer = null;
 		query = '';
 	}
@@ -109,8 +110,8 @@
 		}))
 	]);
 	const groups = $derived([
-		{ title: 'Mainnet', rows: rows.filter((r) => !r.chain.testnet) },
-		{ title: 'Testnet', rows: rows.filter((r) => r.chain.testnet) }
+		{ key: 'main', title: t.common.mainnet, rows: rows.filter((r) => !r.chain.testnet) },
+		{ key: 'test', title: t.common.testnet, rows: rows.filter((r) => r.chain.testnet) }
 	]);
 
 	/** A web page's host, or nothing: the data comes from a third party. */
@@ -125,7 +126,7 @@
 	function set(key: string, value: string) {
 		const url = value.trim();
 		if (url && !isHttpUrl(url)) {
-			wrong[key] = 'Enter a web address: http://… or https://…';
+			wrong[key] = t.settings.enterUrl;
 			return;
 		}
 		delete wrong[key];
@@ -138,17 +139,15 @@
 		problem = added = '';
 		try {
 			const id = Number(custom.chainId);
-			if (!Number.isInteger(id) || id <= 0) throw new Error('Enter the chain id.');
+			if (!Number.isInteger(id) || id <= 0) throw new Error(t.settings.enterChainId);
 			if ([...registry.evm, ...store.settings.chains].some((c) => c.chainId === id))
-				throw new Error('This chain is already listed.');
+				throw new Error(t.settings.alreadyListed);
 			const endpoint = custom.rpc.trim();
-			if (!isHttpUrl(endpoint))
-				throw new Error('Enter the RPC URL, a web address: http://… or https://…');
+			if (!isHttpUrl(endpoint)) throw new Error(t.settings.enterRpc);
 			const ex = custom.explorer.trim().replace(/\/$/, '');
-			if (ex && !isHttpUrl(ex))
-				throw new Error('Enter the explorer as a web address (https://…), or leave it empty.');
+			if (ex && !isHttpUrl(ex)) throw new Error(t.settings.enterExplorer);
 			const answered = Number(BigInt(await rpc<string>(endpoint, 'eth_chainId')));
-			if (answered !== id) throw new Error(`That endpoint serves chain ${answered}, not ${id}.`);
+			if (answered !== id) throw new Error(t.settings.wrongChain(answered, id));
 			store.settings.chains.push({
 				chainId: id,
 				name: custom.name || `Chain ${id}`,
@@ -159,7 +158,7 @@
 				tokens: []
 			});
 			save();
-			added = `Added ${custom.name || `chain ${id}`}. The phone signs for it, and warns that it is not in its list.`;
+			added = t.settings.addedChain(custom.name || t.settings.chain(id), false);
 			custom = { name: '', chainId: '', symbol: '', rpc: '', explorer: '' };
 		} catch (e) {
 			problem = (e as Error).message;
@@ -177,15 +176,15 @@
 </script>
 
 <div class="stack narrow">
-	<h2>Settings</h2>
+	<h2>{t.settings.title}</h2>
 	<section class="card stack">
-		<div class="label">Networks</div>
+		<div class="label">{t.settings.networks}</div>
 		<input
 			class="search"
 			bind:value={query}
 			onfocus={startSearch}
-			placeholder="Search a network — name, symbol or chain id"
-			aria-label="Search a network"
+			placeholder={t.settings.search}
+			aria-label={t.settings.searchLabel}
 			spellcheck="false"
 			autocomplete="off"
 		/>
@@ -197,97 +196,114 @@
 				{#each hits as h (h.chainId)}
 					<button class="hit" disabled={known(h.chainId)} onclick={() => pick(h)}>
 						<span class="grow"
-							><b>{h.name}</b> <span class="small">· {h.symbol} · chain {h.chainId}</span></span
+							><b>{h.name}</b>
+							<span class="small">· {h.symbol} · {t.settings.chain(h.chainId)}</span></span
 						>
-						{#if h.testnet}<span class="pill warn">Testnet</span>{/if}
-						{#if known(h.chainId)}<span class="small">Listed</span>{/if}
+						{#if h.testnet}<span class="pill warn">{t.common.testnet}</span>{/if}
+						{#if known(h.chainId)}<span class="small">{t.settings.listed}</span>{/if}
 					</button>
 				{/each}
 			</div>
 		{:else if query && all.length}
-			<p class="small">No network matches “{query}”.</p>
+			<p class="small">{t.settings.noMatch(query)}</p>
 		{/if}
-		{#if loadingOffer}<p class="small" role="status">Checking its endpoints…</p>{/if}
+		{#if loadingOffer}<p class="small" role="status">{t.settings.checkingEndpoints}</p>{/if}
 		{#if offer}
 			<div class="offer stack">
 				<div class="row">
 					<b class="grow">{offer.chain.name}</b>
-					{#if offer.chain.testnet}<span class="pill warn">Testnet</span>{:else}<span class="pill"
-							>Mainnet</span
+					{#if offer.chain.testnet}<span class="pill warn">{t.common.testnet}</span>{:else}<span
+							class="pill">{t.common.mainnet}</span
 						>{/if}
 				</div>
 				<div class="small">
-					Chain {offer.chain.chainId} · {offer.chain.symbol} · endpoint
+					{t.settings.chainCap(offer.chain.chainId!)} · {offer.chain.symbol} · {t.settings.endpoint}
 					<span class="mono">{offer.chain.rpc}</span>
-					(it answered for this chain){host(offer.chain.explorer.tx)
-						? ` · explorer ${host(offer.chain.explorer.tx)}`
+					{t.settings.answered}{host(offer.chain.explorer.tx)
+						? t.settings.explorer(host(offer.chain.explorer.tx))
 						: ''}
 				</div>
 				{#if offer.tokens.length}
-					<div class="small">Tokens (decimals read from the chain):</div>
-					{#each offer.tokens as t (t.address)}
+					<div class="small">{t.settings.tokens}</div>
+					{#each offer.tokens as token (token.address)}
 						<label class="row token">
-							<input type="checkbox" bind:checked={picked[t.address]} />
-							<b>{t.symbol}</b><span class="mono small grow">{t.address}</span>
+							<input type="checkbox" bind:checked={picked[token.address]} />
+							<b>{token.symbol}</b><span class="mono small grow">{token.address}</span>
 						</label>
 					{/each}
 				{/if}
-				<div><button class="primary" onclick={addOffer}>Add {offer.chain.name}</button></div>
+				<div>
+					<button class="primary" onclick={addOffer}>{t.settings.add(offer.chain.name)}</button>
+				</div>
 			</div>
 		{/if}
 		<p class="small">
-			Networks come from <a href={CHAIN_DATA} target="_blank" rel="noreferrer"
+			{t.settings.sourceBefore}<a href={CHAIN_DATA} target="_blank" rel="noreferrer"
 				>{new URL(CHAIN_DATA).host}</a
-			>.
+			>{t.settings.sourceAfter}
 			<button class="ghost small" aria-expanded={byHand} onclick={() => (byHand = !byHand)}
-				>{byHand ? 'Hide' : 'Enter one by hand'}</button
+				>{byHand ? t.settings.hide : t.settings.byHand}</button
 			>
 		</p>
 		{#if byHand}
 			<div class="grid">
-				<input bind:value={custom.name} placeholder="Name" aria-label="Name" />
+				<input
+					bind:value={custom.name}
+					placeholder={t.settings.name}
+					aria-label={t.settings.name}
+				/>
 				<input
 					bind:value={custom.chainId}
-					placeholder="Chain id"
-					aria-label="Chain id"
+					placeholder={t.settings.chainId}
+					aria-label={t.settings.chainId}
 					inputmode="numeric"
 				/>
-				<input bind:value={custom.symbol} placeholder="Coin symbol" aria-label="Coin symbol" />
-				<input bind:value={custom.rpc} placeholder="RPC URL" aria-label="RPC URL" />
+				<input
+					bind:value={custom.symbol}
+					placeholder={t.settings.symbol}
+					aria-label={t.settings.symbol}
+				/>
+				<input
+					bind:value={custom.rpc}
+					placeholder={t.settings.rpcUrl}
+					aria-label={t.settings.rpcUrl}
+				/>
 				<input
 					class="wide"
 					bind:value={custom.explorer}
-					placeholder="Explorer URL (https://…)"
-					aria-label="Explorer URL"
+					placeholder={t.settings.explorerPlaceholder}
+					aria-label={t.settings.explorerUrl}
 				/>
 			</div>
-			<div><button class="primary" onclick={addChain}>Add chain</button></div>
+			<div><button class="primary" onclick={addChain}>{t.settings.addChain}</button></div>
 		{/if}
 		{#if problem}<div class="notice danger" role="alert">{problem}</div>{/if}
 		{#if added}<div class="notice info" role="status">{added}</div>{/if}
-		{#each groups as g (g.title)}
+		{#each groups as g (g.key)}
 			{#if g.rows.length}
 				<div class="group">{g.title}</div>
 				{#each g.rows as r (r.key)}
 					<div class="net">
 						<div class="row">
 							<b class="grow">{r.name}</b>
-							{#if store.settings.rpc[r.key]}<span class="pill dim">Own endpoint</span>{/if}
+							{#if store.settings.rpc[r.key]}<span class="pill dim">{t.settings.ownEndpoint}</span
+								>{/if}
 							<button
 								class="ghost small"
 								aria-expanded={!!editing[r.key]}
-								onclick={() => (editing[r.key] = !editing[r.key])}>Endpoint</button
+								onclick={() => (editing[r.key] = !editing[r.key])}
+								>{t.settings.endpointButton}</button
 							>
 							{#if store.settings.chains.includes(r.chain)}<button
 									class="ghost small"
-									onclick={() => removeChain(r.chain)}>Remove</button
+									onclick={() => removeChain(r.chain)}>{t.settings.remove}</button
 								>{/if}
 						</div>
 						{#if editing[r.key]}
 							<input
 								value={store.settings.rpc[r.key] ?? ''}
 								placeholder={`${r.kind}: ${r.chain.rpc}`}
-								aria-label={`${r.name} endpoint (${r.kind})`}
+								aria-label={t.settings.endpointLabel(r.name, r.kind)}
 								onchange={(e) => set(r.key, e.currentTarget.value)}
 								spellcheck="false"
 							/>
@@ -299,15 +315,12 @@
 				{/each}
 			{/if}
 		{/each}
-		<p class="small">
-			Airkeys reads balances and broadcasts through these endpoints. Point them at your own nodes
-			for privacy; leave one empty for the default.
-		</p>
+		<p class="small">{t.settings.endpointsNote}</p>
 	</section>
 	<section class="card stack">
-		<div class="label">Prices</div>
+		<div class="label">{t.settings.prices}</div>
 		<label class="row">
-			<span class="grow">Show totals in</span>
+			<span class="grow">{t.settings.showIn}</span>
 			<select
 				class="currency"
 				value={store.settings.currency ?? 'USD'}
@@ -320,35 +333,28 @@
 			</select>
 		</label>
 		<p class="small">
-			Coins and tokens are valued by Chainlink price feeds, read through the Ethereum and BNB Smart
-			Chain endpoints above; only what Airkeys lists is priced. Other currencies are converted with
-			the rates of <span class="mono">{new URL(store.settings.fx || DEFAULT_FX).host}</span>.
-			Neither carries an address.
+			{t.settings.pricesBefore}<span class="mono"
+				>{new URL(store.settings.fx || DEFAULT_FX).host}</span
+			>{t.settings.pricesAfter}
 		</p>
 		<label class="stack tight">
-			<span class="small">Exchange-rate endpoint (rates from USD)</span>
+			<span class="small">{t.settings.fxLabel}</span>
 			<input bind:value={fxText} onchange={setFx} placeholder={DEFAULT_FX} spellcheck="false" />
 		</label>
 		{#if fxProblem}<div class="notice warn small" role="status">{fxProblem}</div>{/if}
 	</section>
 	<section class="card stack">
-		<div class="label">This browser</div>
-		<p class="small">
-			The web app keeps only addresses and these settings, in this browser. It never sees a key.
-		</p>
+		<div class="label">{t.settings.browser}</div>
+		<p class="small">{t.settings.browserNote}</p>
 		<div>
 			<button
 				class="danger"
 				onclick={() => {
-					if (
-						confirm(
-							'Forget every account in this browser? The funds are untouched; connect the phone again to see them.'
-						)
-					) {
+					if (confirm(t.settings.forgetConfirm)) {
 						store.accounts = [];
 						save();
 					}
-				}}>Forget all accounts</button
+				}}>{t.settings.forget}</button
 			>
 		</div>
 	</section>

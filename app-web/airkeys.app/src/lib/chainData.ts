@@ -5,6 +5,7 @@
 import type { Chain, Token } from './registry';
 import { getJson, isHttpUrl, rpc } from './chains/net';
 import { parseEvm } from './addresses';
+import { t } from './i18n/index.svelte';
 
 export const CHAIN_DATA = 'https://ethereum-data.getvela.app';
 
@@ -92,14 +93,14 @@ const PROBE_MS = 5000;
 /** One chain's details, with an endpoint that answered for this chain id. */
 export async function chainDetails(chainId: number): Promise<ChainOffer> {
 	const r = await getJson<ChainRecord>(`${CHAIN_DATA}/chains/eip155-${chainId}.json`);
-	if (r.chainId !== chainId) throw new Error('The chain data does not match this chain id.');
+	if (r.chainId !== chainId) throw new Error(t.chainData.mismatch);
 	if (
 		typeof r.name !== 'string' ||
 		typeof r.nativeCurrency?.symbol !== 'string' ||
 		!Number.isInteger(r.nativeCurrency.decimals) ||
 		!Array.isArray(r.rpc)
 	)
-		throw new Error('The chain data is not valid.');
+		throw new Error(t.chainData.invalid);
 	// plain HTTPS endpoints without API keys, all asked at once: the first to serve this chain
 	const candidates = r.rpc
 		.filter((u) => typeof u === 'string' && u.startsWith('https://') && !u.includes('${'))
@@ -118,7 +119,7 @@ export async function chainDetails(chainId: number): Promise<ChainOffer> {
 			})
 		);
 	} catch {
-		throw new Error('None of its public endpoints answered. Enter one by hand.');
+		throw new Error(t.chainData.noEndpoint);
 	}
 	const site = (
 		r.explorers?.find((e) => e.standard === 'EIP3091') ?? r.explorers?.[0]

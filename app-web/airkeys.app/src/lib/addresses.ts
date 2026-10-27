@@ -5,6 +5,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { ripemd160 } from '@noble/hashes/legacy.js';
 import { base58check, bech32, bech32m, hex } from '@scure/base';
 import type { Network } from './registry';
+import { t } from './i18n/index.svelte';
 
 const b58c = base58check(sha256);
 const utf8 = new TextEncoder();
@@ -24,12 +25,11 @@ export function evmChecksum(addr: string): string {
 
 /** The checksummed form, or an error sentence. */
 export function parseEvm(s: string): string {
-	if (!/^0x[0-9a-fA-F]{40}$/.test(s))
-		throw new Error(`${s} is not an EVM address (0x and 40 hex digits).`);
+	if (!/^0x[0-9a-fA-F]{40}$/.test(s)) throw new Error(t.addresses.notEvm(s));
 	const body = s.slice(2);
 	const mixed = /[a-f]/.test(body) && /[A-F]/.test(body);
 	const sum = evmChecksum(s);
-	if (mixed && sum !== s) throw new Error(`${s} has a wrong checksum: a character is mistyped.`);
+	if (mixed && sum !== s) throw new Error(t.addresses.checksum(s));
 	return sum;
 }
 
@@ -56,8 +56,7 @@ export const BTC_DUST: Record<BtcKind, number> = {
 export function parseBitcoin(s: string): { kind: BtcKind; script: Uint8Array } {
 	if (/^bc1/i.test(s)) {
 		const lower = s.toLowerCase();
-		if (s !== lower && s !== s.toUpperCase())
-			throw new Error(`${s} is not a valid Bitcoin address.`);
+		if (s !== lower && s !== s.toUpperCase()) throw new Error(t.addresses.notBitcoin(s));
 		const v0 = /^bc1q/.test(lower);
 		try {
 			const { prefix, words } = (v0 ? bech32 : bech32m).decode(lower as `${string}1${string}`, 90);
@@ -73,7 +72,7 @@ export function parseBitcoin(s: string): { kind: BtcKind; script: Uint8Array } {
 		} catch {
 			/* fall through */
 		}
-		throw new Error(`${s} is not a Bitcoin mainnet address Airkeys pays to.`);
+		throw new Error(t.addresses.notPayable(s));
 	}
 	try {
 		const d = b58c.decode(s);
@@ -84,7 +83,7 @@ export function parseBitcoin(s: string): { kind: BtcKind; script: Uint8Array } {
 	} catch {
 		/* fall through */
 	}
-	throw new Error(`${s} is not a valid Bitcoin mainnet address.`);
+	throw new Error(t.addresses.notMainnet(s));
 }
 
 /** Whether `to` pays the key behind the P2WPKH address `own`: as itself in any case, or as the
@@ -104,12 +103,12 @@ export function paysSameKey(own: string, to: string): boolean {
 
 /** The address in its canonical spelling, or an error sentence. */
 export function parseAddress(network: Network, s: string): string {
-	const t = s.trim();
+	const a = s.trim();
 	switch (network) {
 		case 'evm':
-			return parseEvm(t);
+			return parseEvm(a);
 		case 'bitcoin':
-			parseBitcoin(t);
-			return /^bc1/i.test(t) ? t.toLowerCase() : t;
+			parseBitcoin(a);
+			return /^bc1/i.test(a) ? a.toLowerCase() : a;
 	}
 }

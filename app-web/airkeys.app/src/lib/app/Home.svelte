@@ -14,6 +14,7 @@
 	import Coin from '$lib/ui/Coin.svelte';
 	import Exposure from './Exposure.svelte';
 	import Wallet from './Wallet.svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open,
@@ -95,27 +96,29 @@
 	<div class="stack">
 		<section class="hero card">
 			<div class="row top">
-				<span class="label grow">Total{priced ? ` · ${currency()}` : ''}</span>
+				<span class="label grow">{t.home.total}{priced ? ` · ${currency()}` : ''}</span>
 				<button class="ghost small" onclick={reload} disabled={reading > 0 || prices.loading}
-					>{reading > 0 ? `Reading, ${reading} to go…` : 'Refresh'}</button
+					>{reading > 0 ? t.home.readingLeft(reading) : t.common.refresh}</button
 				>
 			</div>
 			{#if testnet}
-				<div class="figure muted">Test coins</div>
-				<p class="small">Coins on test networks have no value, so nothing here is priced.</p>
+				<div class="figure muted">{t.home.testCoins}</div>
+				<p class="small">{t.home.testUnpriced}</p>
 			{:else if known}
 				<div class="figure">{money(sum.total)}</div>
 			{:else}
-				<div class="figure skeleton" aria-label="Reading balances"></div>
+				<div class="figure skeleton" aria-label={t.home.readingBalances}></div>
 			{/if}
 			{#if !testnet && (unreachable.length || sum.unpriced.length || prices.failed.length)}
 				<p class="small">
-					{#if unreachable.length}Not counted: {unreachable.join(', ')} did not answer (<button
+					{#if unreachable.length}{t.home.notCountedBefore(unreachable.join(t.common.comma))}<button
 							class="link"
-							onclick={settings}>endpoints</button
-						>).{/if}
-					{#if sum.unpriced.length}No price for {sum.unpriced.join(', ')}: not in the total.{/if}
-					{#if prices.failed.length}Could not read {prices.failed.join('; ')}.{/if}
+							onclick={settings}>{t.home.endpoints}</button
+						>{t.home.notCountedAfter}{/if}
+					{#if sum.unpriced.length}{t.home.noPrice(sum.unpriced.join(t.common.comma))}{/if}
+					{#if prices.failed.length}{t.home.couldNotRead(
+							prices.failed.join(t.common.semicolon)
+						)}{/if}
 				</p>
 			{/if}
 
@@ -126,23 +129,20 @@
 							><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><path
 								d="M9 12l2 2 4-4"
 							/></svg
-						><b>Bunker</b>
+						><b>{t.home.bunker}</b>
 					</div>
 					<div class="amount">{priced ? money(sum.bunker) : sum.bunkerAccounts ? '—' : '0'}</div>
-					<div class="small">
-						{sum.bunkerAccounts} account{sum.bunkerAccounts === 1 ? '' : 's'} holding, keys never revealed
-					</div>
+					<div class="small">{t.home.bunkerNote(sum.bunkerAccounts)}</div>
 				</div>
 				<div class="tile" class:exposed={sum.toMove.length > 0}>
 					<div class="row tight">
 						<svg viewBox="0 0 24 24" aria-hidden="true"
 							><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></svg
-						><b>Exposed</b>
+						><b>{t.home.exposed}</b>
 					</div>
 					<div class="amount">{priced ? money(sum.exposed) : sum.exposedAccounts ? '—' : '0'}</div>
 					<div class="small">
-						{#if sum.toMove.length}{sum.toMove.length} to move, one signing each{:else}Nothing
-							behind a revealed key{/if}
+						{sum.toMove.length ? t.home.toMoveNote(sum.toMove.length) : t.home.nothingExposed}
 					</div>
 				</div>
 			</div>
@@ -151,28 +151,26 @@
 				{#each order as n (n)}
 					{@const at = receiveAt(n)}
 					<button class="primary grow" disabled={!at} onclick={() => at && open(at)}
-						>Receive {n === 'bitcoin' ? 'Bitcoin' : 'on EVM'}</button
+						>{n === 'bitcoin' ? t.home.receiveBitcoin : t.home.receiveEvm}</button
 					>
 				{/each}
 			</div>
 			{#if reading === 0 && order.some((n) => accounts.some((a) => a.network === n) && !receiveAt(n))}
 				<p class="small">
-					No {order
-						.filter((n) => accounts.some((a) => a.network === n) && !receiveAt(n))
-						.map((n) => (n === 'bitcoin' ? 'Bitcoin' : 'EVM'))
-						.join(' or ')} account with a hidden key is connected here. On the phone: Connect → All 100
-					accounts, then <button class="link" onclick={connect}>scan it</button>.
+					{t.home.noHiddenBefore(
+						order
+							.filter((n) => accounts.some((a) => a.network === n) && !receiveAt(n))
+							.map((n) => (n === 'bitcoin' ? 'Bitcoin' : 'EVM'))
+							.join(t.common.or)
+					)}<button class="link" onclick={connect}>{t.home.scanIt}</button>{t.home.noHiddenAfter}
 				</p>
 			{/if}
 		</section>
 
 		{#if sum.toMove.length}
 			<section class="stack tight">
-				<div class="label">To move</div>
-				<p class="small">
-					These accounts have signed before, so their public keys are on chain. Move what each holds
-					to an account whose key is still hidden — one signing per chain.
-				</p>
+				<div class="label">{t.home.toMove}</div>
+				<p class="small">{t.home.toMoveLead}</p>
 				{#each sum.toMove as m (m.account.address + chainLabel(m.chain))}
 					<div class="card row move">
 						<Coin asset={coinOf(m)} size={34} />
@@ -182,11 +180,14 @@
 								>{m.assets
 									.slice(0, 3)
 									.map((a) => amountText(a))
-									.join(', ')}{m.assets.length > 3 ? ` +${m.assets.length - 3}` : ''}</span
+									.join(t.common.comma)}{m.assets.length > 3
+									? ` +${m.assets.length - 3}`
+									: ''}</span
 							>
 						</button>
 						{#if m.value !== null}<b class="value">{money(m.value)}</b>{/if}
-						<button class="primary" onclick={() => move(m.account, coinOf(m))}>Move</button>
+						<button class="primary" onclick={() => move(m.account, coinOf(m))}>{t.home.move}</button
+						>
 					</div>
 				{/each}
 			</section>
@@ -194,14 +195,14 @@
 
 		<section class="stack tight">
 			<div class="row">
-				<div class="label grow">Assets</div>
+				<div class="label grow">{t.home.assets}</div>
 			</div>
 			{#if chains.length > 1}
-				<div class="chips" role="group" aria-label="Show the assets of">
+				<div class="chips" role="group" aria-label={t.home.showAssetsOf}>
 					<button
 						class:on={filter === null}
 						aria-pressed={filter === null}
-						onclick={() => (filter = null)}>All</button
+						onclick={() => (filter = null)}>{t.home.all}</button
 					>
 					{#each chains as c (c)}
 						<button class:on={filter === c} aria-pressed={filter === c} onclick={() => (filter = c)}
@@ -212,9 +213,7 @@
 			{/if}
 			{#if !lines.length}
 				<div class="card small">
-					{reading
-						? 'Reading balances…'
-						: 'Nothing held yet. Receive at an account above: what it holds appears here.'}
+					{reading ? t.home.readingBalancesDots : t.home.nothingHeld}
 				</div>
 			{/if}
 			<div class="list card">
@@ -228,9 +227,7 @@
 						<span class="grow">
 							<b>{l.asset.symbol}</b>
 							<span class="small line"
-								>{chainLabel(l.asset.chain)} · {l.holders.length} account{l.holders.length === 1
-									? ''
-									: 's'}</span
+								>{chainLabel(l.asset.chain)} · {t.home.accountsCount(l.holders.length)}</span
 							>
 						</span>
 						<span class="right">
@@ -259,7 +256,7 @@
 		</section>
 
 		<details class="accounts">
-			<summary class="label">Accounts · {accounts.length}</summary>
+			<summary class="label">{t.home.accounts} · {accounts.length}</summary>
 			<Wallet {open} {connect} />
 		</details>
 	</div>

@@ -18,6 +18,9 @@ execFileSync(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js')
 	env: { ...process.env, AIRKEYS_EXTENSION: '1' },
 	stdio: 'inherit'
 });
+// the website's files: the extension is the app alone
+for (const site of ['screens', 'sitemap.xml', 'robots.txt'])
+	rmSync(path.join(out, site), { recursive: true, force: true });
 
 let moved = 0;
 const walk = (dir) => {

@@ -4,6 +4,7 @@
 import { NETWORKS, registry, type Chain, type Network, type Token } from './registry';
 import { isIndex, type Account } from './protocol';
 import { isHttpUrl } from './chains/net';
+import { isLang, lang, type Lang } from './i18n/index.svelte';
 
 export interface Settings {
 	/** Endpoint per chain key: "bitcoin", "evm:<chainId>". */
@@ -17,6 +18,8 @@ export interface Settings {
 	currency?: string;
 	/** Where rates from the US dollar come from (Vela's exchange-rate service when absent). */
 	fx?: string;
+	/** The language chosen in the header; absent, the browser's. */
+	lang?: Lang;
 }
 
 const KEY = 'airkeys.v1';
@@ -87,7 +90,8 @@ function load(): { accounts: Account[]; settings: Settings } {
 				...(typeof s.currency === 'string' && /^[A-Z]{3}$/.test(s.currency)
 					? { currency: s.currency }
 					: {}),
-				...(typeof s.fx === 'string' && isHttpUrl(s.fx) ? { fx: s.fx } : {})
+				...(typeof s.fx === 'string' && isHttpUrl(s.fx) ? { fx: s.fx } : {}),
+				...(isLang(s.lang) ? { lang: s.lang } : {})
 			}
 		};
 	} catch {
@@ -100,6 +104,15 @@ export const store = $state(
 		? { accounts: [] as Account[], settings: { rpc: {}, chains: [] } as Settings }
 		: load()
 );
+// the language chosen before, over the browser's
+if (store.settings.lang) lang.current = store.settings.lang;
+
+/** Shows the app in a language, now and on the next visit. */
+export function setLang(l: Lang) {
+	lang.current = l;
+	store.settings.lang = l;
+	save();
+}
 
 export function save() {
 	try {

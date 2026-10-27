@@ -14,6 +14,7 @@
 	} from 'lumen-code/src/core/transfer.js';
 	import { Renderer } from 'lumen-code/src/core/render.js';
 	import { onDestroy } from 'svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let { data, name, fps = 10 }: { data: Uint8Array; name: string; fps?: number } = $props();
 	// cells across the short side, largest cells first; 4 colours, 22 % parity, as the phone
@@ -150,7 +151,7 @@
 <svelte:window onresize={resized} />
 
 <div class="code" class:narrow bind:this={box} style:height={tall ? `${tall}px` : null}>
-	<canvas bind:this={canvas} aria-label="Animated code for the Airkeys phone"></canvas>
+	<canvas bind:this={canvas} aria-label={t.ui.codeLabel}></canvas>
 </div>
 
 <style>

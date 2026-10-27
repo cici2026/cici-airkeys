@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+	<url>
+		<loc>https://airkeys.app/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/" />
+	</url>
+	<url>
+		<loc>https://airkeys.app/zh/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/" />
+	</url>
+	<url>
+		<loc>https://airkeys.app/terms/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/terms/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/terms/" />
+	</url>
+	<url>
+		<loc>https://airkeys.app/zh/terms/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/terms/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/terms/" />
+	</url>
+	<url>
+		<loc>https://airkeys.app/privacy/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/privacy/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/privacy/" />
+	</url>
+	<url>
+		<loc>https://airkeys.app/zh/privacy/</loc>
+		<xhtml:link rel="alternate" hreflang="en" href="https://airkeys.app/privacy/" />
+		<xhtml:link rel="alternate" hreflang="zh-Hans" href="https://airkeys.app/zh/privacy/" />
+	</url>
+</urlset>
