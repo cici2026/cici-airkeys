@@ -129,6 +129,9 @@ pub enum Action {
     Done,
     /// The one-time message was seen.
     DismissToast,
+    /// The system language, at start and whenever it changes: the current screen is drawn
+    /// again in it, and nothing else changes.
+    Language { language: crate::view::Language },
 }
 
 /// Names only: some actions carry a recovery phrase, a passphrase or a word of one.
@@ -157,6 +160,7 @@ impl std::fmt::Debug for Action {
             Action::Reject => "Reject",
             Action::Done => "Done",
             Action::DismissToast => "DismissToast",
+            Action::Language { .. } => "Language",
         })
     }
 }

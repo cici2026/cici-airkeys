@@ -1,8 +1,8 @@
-# core — the phone's brain
+# core
 
-Rust, shared by the iOS and Android apps. Everything that decides — keys, addresses,
-transactions, the protocol's checks, which screen comes next and what it says about the wallet
-and a request — is here; the shells draw it and operate the camera and screen.
+The Rust code shared by the iOS and Android apps. Everything that decides is here: keys,
+addresses, transactions, the protocol's checks, which screen comes next and what it says about
+the wallet and a request. The shells draw it and operate the camera and screen.
 
 ```
 wallet/    airkeys-wallet: pure functions, no I/O
@@ -23,9 +23,9 @@ e2e/       signing and recovery checked against real chain software (Node)
 scripts/   build-android.sh, build-ios.sh
 ```
 
-Dependencies are few and mainstream: RustCrypto (`k256`, `sha2`, `sha3`, `hmac`, `pbkdf2`,
-`ripemd`), `bs58`, `bech32`, `serde`, `zeroize` in the wallet;
-`crux_core`, `uniffi`, `lumen-code` (pinned commit) and `rqrr` (QR reading) in the app.
+Dependencies are few and widely used: RustCrypto (`k256`, `sha2`, `sha3`, `hmac`, `pbkdf2`,
+`ripemd`), `bs58`, `bech32`, `serde` and `zeroize` in the wallet; `crux_core`, `uniffi`,
+`lumen-code` (pinned commit) and `rqrr` (QR reading) in the app.
 
 ## Commands
 
@@ -46,7 +46,7 @@ cargo run --release -p airkeys-app --example scan_bench      # camera-frame deco
 cargo run -q --release -p airkeys-wallet --example vectors > ../app-web/airkeys.app/src/lib/vectors.json
 ```
 
-Other `app` examples: `phone` (the app without a phone: films its code for a fake webcam),
+Other `app` examples: `phone` (the app without a phone; films its code for a fake webcam),
 `render_code` / `read_screens` (codes to PNG and back), `capacity` (bytes per code frame).
 
 ## End-to-end checks (`e2e/`)

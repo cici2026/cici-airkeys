@@ -3,10 +3,13 @@ package app.airkeys
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Base64
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,14 +30,22 @@ import app.airkeys.core.Action
 import app.airkeys.core.Screen
 import app.airkeys.ui.AirkeysTheme
 import app.airkeys.ui.App
+import app.airkeys.ui.languageOf
+import app.airkeys.ui.tr
 
 class MainActivity : ComponentActivity() {
     private lateinit var shell: Shell
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // the app is always dark: light status and navigation bar icons, whatever the system theme
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         shell = Shell(this)
+        // the system's or the app's own language (Android 13+): a change makes the Activity anew
+        shell.dispatch(Action.Language(languageOf(resources.configuration)))
         setContent {
             AirkeysTheme {
                 App(shell.view, shell::dispatch, shell::codeFrame) { CameraPreview() }
@@ -61,6 +72,12 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    // only if configChanges ever lists locale: then the Activity is not made anew
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        shell.dispatch(Action.Language(languageOf(newConfig)))
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         testHooks(intent)
@@ -82,12 +99,26 @@ class MainActivity : ComponentActivity() {
         var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
         val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             granted = ok
-            if (!ok) shell.dispatch(Action.CameraFailed("Airkeys needs the camera to read codes: the web app's, or a SeedQR. Allow it in the phone's settings, then try again."))
+            if (!ok) {
+                shell.dispatch(
+                    Action.CameraFailed(
+                        tr(
+                            shell.view.language,
+                            "Airkeys needs the camera to read the web app's codes and SeedQRs. Allow it in the phone's settings, then try again.",
+                            "Airkeys 需要摄像头来读取网页助手的动态码和 SeedQR。请在手机设置中允许，然后重试。",
+                        ),
+                    ),
+                )
+            }
         }
         LaunchedEffect(shell.cameraOn, granted) { if (shell.cameraOn && !granted) ask.launch(Manifest.permission.CAMERA) }
         if (!shell.cameraOn || !granted) return
         // its errors come on the main thread (the provider's listener)
-        val camera = remember { ScanCamera(this, shell::frame) { msg -> shell.dispatch(Action.CameraFailed(msg)) } }
+        val camera = remember {
+            ScanCamera(this, shell::frame) { detail ->
+                shell.dispatch(Action.CameraFailed(tr(shell.view.language, "The camera could not start: $detail", "摄像头无法启动：$detail")))
+            }
+        }
         AndroidView(
             factory = { ctx -> PreviewView(ctx).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }.also { camera.start(it) } },
             modifier = Modifier.fillMaxSize(),

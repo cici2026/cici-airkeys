@@ -14,7 +14,7 @@ struct Page<Content: View, Actions: View, Trailing: View>: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 if let onBack {
-                    IconAction(symbol: "chevron.left", label: "Back", action: onBack)
+                    IconAction(symbol: "chevron.left", label: tr("Back", "返回"), action: onBack)
                 } else {
                     Spacer().frame(width: 12)
                 }

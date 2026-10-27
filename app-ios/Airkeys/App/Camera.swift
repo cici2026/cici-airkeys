@@ -2,6 +2,14 @@ import AVFoundation
 import AirkeysCore
 import SwiftUI
 
+/// Why the camera cannot be used; the shell says it in the core's language.
+enum CameraProblem {
+    /// The person has not allowed the camera.
+    case denied
+    /// No back camera.
+    case missing
+}
+
 /// The back camera for reading codes (the web app's, or a SeedQR): 720p Y′CbCr frames to the
 /// core, and a preview to aim with. Late frames are dropped while a scan runs, so scanning paces
 /// itself.
@@ -9,12 +17,12 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "airkeys.camera")
     private let onFrame: (CameraFrame) -> Void
-    private let onError: (String) -> Void
+    private let onError: (CameraProblem) -> Void
     /// Whether the core wants the camera; only `queue` touches it, so a stop that comes while
     /// the permission prompt is up wins over the start waiting behind it.
     private var wanted = false
 
-    init(onFrame: @escaping (CameraFrame) -> Void, onError: @escaping (String) -> Void) {
+    init(onFrame: @escaping (CameraFrame) -> Void, onError: @escaping (CameraProblem) -> Void) {
         self.onFrame = onFrame
         self.onError = onError
     }
@@ -23,7 +31,7 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         queue.async { self.wanted = true }
         AVCaptureDevice.requestAccess(for: .video) { granted in
             guard granted else {
-                self.onError("Airkeys needs the camera to read codes: the web app's, or a SeedQR. Allow it in Settings › Airkeys, then try again.")
+                self.onError(.denied)
                 return
             }
             self.queue.async { if self.wanted { self.configure() } }
@@ -40,7 +48,7 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private func configure() {
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device) else {
-            onError("This device has no camera Airkeys can use.")
+            onError(.missing)
             return
         }
         session.beginConfiguration()

@@ -43,7 +43,10 @@ impl Mnemonic {
     /// 16, 20, 24, 28 or 32 bytes of entropy → 12 … 24 words.
     pub fn from_entropy(entropy: &[u8]) -> Result<Mnemonic> {
         if !(16..=32).contains(&entropy.len()) || !entropy.len().is_multiple_of(4) {
-            bail!("Entropy must be 16 to 32 bytes, in steps of 4.");
+            bail!(
+                "Entropy must be 16 to 32 bytes, in steps of 4.",
+                "熵必须是 16 到 32 字节，且是 4 的倍数。"
+            );
         }
         let checksum = hash::sha256(entropy)[0];
         let mut bits = Zeroizing::new(Vec::with_capacity(entropy.len() * 8 + 8));
@@ -70,11 +73,19 @@ impl Mnemonic {
         for (n, w) in words.iter().enumerate() {
             match word_index(w) {
                 Some(i) => indices.push(i),
-                None => bail!("Word {} is not in the BIP-39 English word list.", n + 1),
+                None => bail!(
+                    "Word {} is not in the BIP-39 English word list.",
+                    "第 {} 个词不在 BIP-39 英文词表中。",
+                    n + 1
+                ),
             }
         }
         if !Self::WORD_COUNTS.contains(&words.len()) {
-            bail!("A recovery phrase has 12, 15, 18, 21 or 24 words, not {}.", words.len());
+            bail!(
+                "A recovery phrase has 12, 15, 18, 21 or 24 words, not {}.",
+                "助记词有 12、15、18、21 或 24 个词，不是 {} 个。",
+                words.len()
+            );
         }
         let mut bits = Zeroizing::new(Vec::with_capacity(words.len() * 11));
         for i in indices.iter() {
@@ -90,7 +101,8 @@ impl Mnemonic {
         let got = bits[ent_bits..].iter().fold(0u8, |acc, &b| acc << 1 | b);
         if expected != got {
             bail!(
-                "These words are in the list, but the phrase is not valid. Check each word and their order."
+                "The words are in the list, but the phrase is not valid. Check each word and the order.",
+                "这些词都在词表中，但助记词无效。请检查每个词和顺序。"
             );
         }
         Ok(Mnemonic(Zeroizing::new(words.join(" "))))
@@ -108,7 +120,10 @@ impl Mnemonic {
             for (n, d) in payload.chunks(4).enumerate() {
                 let i = d.iter().fold(0, |n, b| n * 10 + usize::from(b - b'0'));
                 let Some(w) = WORDS.get(i) else {
-                    bail!("This SeedQR names word number {i}, but the list has 2048 words.")
+                    bail!(
+                        "This SeedQR names word number {i}, but the list has 2048 words.",
+                        "这个 SeedQR 指向第 {i} 号词，但词表只有 2048 个词。"
+                    )
                 };
                 if n > 0 {
                     words.push(' ');
@@ -125,7 +140,10 @@ impl Mnemonic {
         if (16..=32).contains(&payload.len()) && payload.len().is_multiple_of(4) && !digits {
             return Mnemonic::from_entropy(payload);
         }
-        bail!("This QR code does not hold a recovery phrase (SeedQR, CompactSeedQR or the words as text).")
+        bail!(
+            "This QR code does not hold a recovery phrase (SeedQR, CompactSeedQR or the words as text).",
+            "这个二维码里没有助记词（SeedQR、CompactSeedQR 或文字形式的助记词）。"
+        )
     }
 
     /// The words, separated by single spaces.
@@ -163,10 +181,13 @@ impl std::fmt::Debug for Mnemonic {
 /// [`Mnemonic::seed`] for why).
 pub fn check_passphrase(passphrase: &str) -> Result<()> {
     if passphrase.len() > 256 {
-        bail!("The passphrase is longer than 256 characters.");
+        bail!("The passphrase is longer than 256 characters.", "密码短语超过了 256 个字符。");
     }
     if !passphrase.bytes().all(|b| (0x20..0x7f).contains(&b)) {
-        bail!("Use only letters, digits, spaces and symbols from an English keyboard in the passphrase.");
+        bail!(
+            "Use only letters, digits, spaces and symbols from an English keyboard in the passphrase.",
+            "密码短语只能使用英文键盘上的字母、数字、空格和符号。"
+        );
     }
     Ok(())
 }
@@ -216,7 +237,7 @@ fn master(seed: &Seed) -> Result<Node> {
 /// The hardened child `index'`.
 fn child(parent: &Node, index: u32) -> Result<Node> {
     if index > MAX_INDEX {
-        bail!("Account numbers go up to {MAX_INDEX}.");
+        bail!("Account numbers go up to {MAX_INDEX}.", "账户编号最大为 {MAX_INDEX}。");
     }
     let i = hmac512(&parent.chain, &[&[0], &parent.key, &(index | HARDENED).to_be_bytes()]);
     let mut node = split(&i);
@@ -224,7 +245,10 @@ fn child(parent: &Node, index: u32) -> Result<Node> {
     // 2⁻¹²⁷ — reported, never silently skipped)
     let k = secp_scalar(&node.key)? + secp_scalar(&parent.key)?;
     if bool::from(k.is_zero()) {
-        bail!("This account cannot be derived (BIP-32 invalid child). Use another account number.");
+        bail!(
+            "This account cannot be derived (BIP-32 invalid child). Use another account number.",
+            "无法派生这个账户（BIP-32 无效子密钥）。请换一个账户编号。"
+        );
     }
     node.key = k.to_bytes().into();
     Ok(node)
@@ -242,7 +266,10 @@ fn secp_scalar(bytes: &[u8; 32]) -> Result<k256::Scalar> {
     let s: Option<k256::Scalar> = k256::Scalar::from_repr((*bytes).into()).into();
     match s {
         Some(s) if !bool::from(s.is_zero()) => Ok(s),
-        _ => bail!("This account cannot be derived (BIP-32 invalid key). Use another account number."),
+        _ => bail!(
+            "This account cannot be derived (BIP-32 invalid key). Use another account number.",
+            "无法派生这个账户（BIP-32 无效密钥）。请换一个账户编号。"
+        ),
     }
 }
 
@@ -355,7 +382,7 @@ mod tests {
 
     #[test]
     fn rejects_bad_phrases() {
-        let e = |p: &str| Mnemonic::parse(p).err().unwrap().0;
+        let e = |p: &str| Mnemonic::parse(p).err().unwrap().en;
         assert!(e("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon").contains("not valid"));
         assert!(
             e("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abou")
@@ -385,16 +412,16 @@ mod tests {
         assert!(
             Mnemonic::from_qr(format!("{}2048", "0000".repeat(11)).as_bytes())
                 .unwrap_err()
-                .0
+                .en
                 .contains("2048")
         );
         assert!(
             Mnemonic::from_qr(format!("{}0000", "0000".repeat(11)).as_bytes())
                 .unwrap_err()
-                .0
+                .en
                 .contains("not valid")
         );
-        assert!(Mnemonic::from_qr(b"https://example.com").unwrap_err().0.contains("does not hold"));
+        assert!(Mnemonic::from_qr(b"https://example.com").unwrap_err().en.contains("does not hold"));
         assert!(Mnemonic::from_qr(&[1u8; 15]).is_err());
     }
 

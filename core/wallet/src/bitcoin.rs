@@ -58,20 +58,24 @@ pub struct Address {
 /// `bc1p…` (P2TR). Witness versions 2–16 are refused: nothing can spend them today.
 pub fn parse_address(s: &str) -> Result<Address> {
     if s.len() > MAX_ADDRESS_LEN || !s.is_ascii() {
-        bail!("{} is not a valid Bitcoin address.", shown(s));
+        bail!("{} is not a valid Bitcoin address.", "{} 不是有效的 Bitcoin 地址。", shown(s));
     }
     if s.len() > 2 && s[..3].eq_ignore_ascii_case("bc1") {
         let Ok((hrp, version, program)) = bech32::segwit::decode(s) else {
-            bail!("{} is not a valid Bitcoin address.", shown(s));
+            bail!("{} is not a valid Bitcoin address.", "{} 不是有效的 Bitcoin 地址。", shown(s));
         };
         if hrp != HRP {
-            bail!("{} is not a Bitcoin mainnet address.", shown(s));
+            bail!("{} is not a Bitcoin mainnet address.", "{} 不是 Bitcoin 主网地址。", shown(s));
         }
         let (kind, op) = match (version, program.len()) {
             (Fe32::Q, 20) => (Kind::P2wpkh, 0x00),
             (Fe32::Q, 32) => (Kind::P2wsh, 0x00),
             (Fe32::P, 32) => (Kind::P2tr, 0x51),
-            _ => bail!("{} uses a witness version that Airkeys does not pay to.", shown(s)),
+            _ => bail!(
+                "{} uses a witness version that Airkeys does not pay to.",
+                "Airkeys 不向 {} 这种见证版本的地址付款。",
+                shown(s)
+            ),
         };
         let mut script = vec![op, program.len() as u8];
         script.extend_from_slice(&program);
@@ -85,7 +89,9 @@ pub fn parse_address(s: &str) -> Result<Address> {
         Ok([0x05, hash @ ..]) if hash.len() == 20 => {
             Ok(Address { kind: Kind::P2sh, script: p2sh_script(hash) })
         }
-        _ => bail!("{} is not a valid Bitcoin mainnet address.", shown(s)),
+        _ => {
+            bail!("{} is not a valid Bitcoin mainnet address.", "{} 不是有效的 Bitcoin 主网地址。", shown(s))
+        }
     }
 }
 
@@ -143,7 +149,7 @@ struct Reader<'a> {
 impl<'a> Reader<'a> {
     fn take(&mut self, n: usize) -> Result<&'a [u8]> {
         if self.b.len() - self.at < n {
-            bail!("A previous transaction is cut short.");
+            bail!("A previous transaction is cut short.", "一笔前序交易不完整。");
         }
         let s = &self.b[self.at..self.at + n];
         self.at += n;
@@ -171,7 +177,7 @@ impl<'a> Reader<'a> {
     fn count(&mut self, min: usize) -> Result<usize> {
         let n = self.varint()?;
         if n > ((self.b.len() - self.at) / min.max(1)) as u64 {
-            bail!("A previous transaction is malformed.");
+            bail!("A previous transaction is malformed.", "一笔前序交易格式错误。");
         }
         Ok(n as usize)
     }
@@ -193,7 +199,7 @@ pub fn parse_tx(raw: &[u8]) -> Result<PrevTx> {
     let body_start = r.at;
     let n_in = r.count(41)?;
     if n_in == 0 {
-        bail!("A previous transaction has no inputs.");
+        bail!("A previous transaction has no inputs.", "一笔前序交易没有输入。");
     }
     for _ in 0..n_in {
         r.take(36)?;
@@ -217,7 +223,7 @@ pub fn parse_tx(raw: &[u8]) -> Result<PrevTx> {
     }
     let lock_time = r.take(4)?;
     if r.at != raw.len() {
-        bail!("A previous transaction has extra bytes at the end.");
+        bail!("A previous transaction has extra bytes at the end.", "一笔前序交易末尾有多余的字节。");
     }
     let mut stripped = Vec::with_capacity(raw.len());
     stripped.extend_from_slice(version);

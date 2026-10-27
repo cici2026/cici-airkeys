@@ -42,11 +42,11 @@ fn main() {
     let request = match Message::parse(&input) {
         Ok(Message::Sign(r)) => r,
         Ok(m) => fail(&format!("expected a sign request, got “{}”", m.type_name())),
-        Err(e) => fail(&e.0),
+        Err(e) => fail(&e.en),
     };
-    let review = review(&request, &wallet).unwrap_or_else(|e| fail(&e.0));
+    let review = review(&request, &wallet).unwrap_or_else(|e| fail(&e.en));
     eprintln!("{}", serde_json::to_string_pretty(&review).unwrap());
-    let signed = review.sign(&wallet).unwrap_or_else(|e| fail(&e.0));
+    let signed = review.sign(&wallet).unwrap_or_else(|e| fail(&e.en));
     println!("{}", Message::Signed(signed).to_json());
 }
 

@@ -27,6 +27,7 @@ impl Amount {
         if !ok {
             bail!(
                 "“{}” is not an amount: amounts are whole numbers of base units, written in digits.",
+                "“{}”不是金额：金额是以最小单位计的整数，用数字书写。",
                 shown(s)
             );
         }
@@ -40,7 +41,7 @@ impl Amount {
                 carry = v >> 64;
             }
             if carry != 0 {
-                bail!("The amount {} is too large.", shown(s));
+                bail!("The amount {} is too large.", "金额 {} 太大。", shown(s));
             }
         }
         let mut be = [0u8; 32];

@@ -25,6 +25,9 @@ struct AirkeysApp: App {
             .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
                 captured = UIScreen.main.isCaptured
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSLocale.currentLocaleDidChangeNotification)) { _ in
+                shell.followSystemLanguage()
+            }
         }
     }
 }

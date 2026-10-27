@@ -13,12 +13,16 @@
 //! the current phase needs (camera, screen kept on, screenshots blocked, a code playing, a
 //! receiver listening) with what was last asked for, and asks for the difference. No path
 //! can leave the camera on or a phrase unprotected.
+//!
+//! Every word the person reads comes in English and Simplified Chinese, side by side where it
+//! is written: `text!("English", "中文")` keeps both until the view picks the one of
+//! [`Language`], so changing the language draws the same screen again in the other.
 
 use crate::ops::{Action, CodeOp, Haptic, RadioState, Request};
 use crate::view::*;
 use airkeys_wallet::keys::{check_passphrase, completions, word_index};
 use airkeys_wallet::protocol::{Account, Message};
-use airkeys_wallet::{Mnemonic, Network, Review, Wallet, review};
+use airkeys_wallet::{Mnemonic, Network, Review, Text, Wallet, review, text};
 use crux_core::macros::effect;
 use crux_core::render::{RenderOperation, render};
 use crux_core::{App, Command};
@@ -74,7 +78,7 @@ enum Phase {
         phrase: Mnemonic,
         typed: Zeroizing<String>,
         passphrase: Zeroizing<String>,
-        problem: Option<String>,
+        problem: Option<Text>,
     },
     Home,
     Account {
@@ -86,8 +90,8 @@ enum Phase {
         all: bool,
     },
     Code {
-        title: String,
-        caption: String,
+        title: Text,
+        caption: Text,
         message: Message,
         json: String,
         back: Box<Phase>,
@@ -95,15 +99,15 @@ enum Phase {
     Scan {
         purpose: Purpose,
         progress: Option<(u32, u32)>,
-        problem: Option<String>,
+        problem: Option<Text>,
         typed: Option<Zeroizing<String>>,
     },
     Review {
         review: Box<Review>,
     },
     Refused {
-        title: String,
-        message: String,
+        title: Text,
+        message: Text,
     },
 }
 
@@ -124,7 +128,9 @@ pub struct Model {
     /// Wi-Fi, Bluetooth, mobile data and any network connection, as the shell last reported
     /// them.
     radios: [RadioState; 4],
-    toast: Option<String>,
+    toast: Option<Text>,
+    /// The language the view is drawn in.
+    language: Language,
     phase: Phase,
     /// The open wallet; `None` whenever none is open.
     wallet: Option<Wallet>,
@@ -139,6 +145,7 @@ impl Default for Model {
             rev: 0,
             radios: [RadioState::Unknown; 4],
             toast: None,
+            language: Language::En,
             phase: Phase::Welcome,
             wallet: None,
             index: 0,
@@ -165,31 +172,50 @@ fn haptic(kind: Haptic) -> Cmd {
     notify(Request::Haptic { kind })
 }
 
-/// The rows of the offline check: what to do while one is on, and what "still active" means.
-const RADIOS: [(RadioKind, &str, &str, &str); 4] = [
+/// English and Chinese.
+type Words = (&'static str, &'static str);
+
+/// The rows of the offline check: its name, what to do while one is on, and what "still
+/// active" means.
+const RADIOS: [(RadioKind, Words, Words, Words); 4] = [
     (
         RadioKind::Wifi,
-        "Wi-Fi",
-        "Switch Wi-Fi off.",
-        "Switched off, but the phone still scans for Wi-Fi networks to find its location. Turn off Wi-Fi scanning (in Location settings), or turn Location off.",
+        ("Wi-Fi", "Wi-Fi"),
+        ("Switch Wi-Fi off.", "关闭 Wi-Fi。"),
+        (
+            "Switched off, but still scanning for networks to locate the phone. Turn off Wi-Fi scanning in Location settings, or turn Location off.",
+            "已关闭，但仍在扫描网络来给手机定位。请在定位设置中关闭 Wi-Fi 扫描，或关闭定位。",
+        ),
     ),
     (
         RadioKind::Bluetooth,
-        "Bluetooth",
-        "Switch Bluetooth off.",
-        "Switched off, but still working, usually for Bluetooth scanning (in Location settings). Turn that off, or turn Location off.",
+        ("Bluetooth", "蓝牙"),
+        ("Switch Bluetooth off.", "关闭蓝牙。"),
+        (
+            "Switched off, but still active, usually for Bluetooth scanning. Turn that off in Location settings, or turn Location off.",
+            "已关闭，但仍在工作，通常是在做蓝牙扫描。请在定位设置中关闭它，或关闭定位。",
+        ),
     ),
     (
         RadioKind::MobileData,
-        "Mobile data",
-        "Turn on Airplane mode.",
-        "Airplane mode is on, but the phone still has a cellular signal.",
+        ("Mobile data", "移动数据"),
+        ("Turn on Airplane mode.", "打开飞行模式。"),
+        (
+            "Airplane mode is on, but the phone still has a cellular signal.",
+            "飞行模式已打开，但手机仍有蜂窝信号。",
+        ),
     ),
     (
         RadioKind::Network,
-        "Network connection",
-        "Disconnect every network: Wi-Fi, a cable, tethering, a VPN.",
-        "The phone still has a network: tethering, USB, Ethernet or VPN. Disconnect it.",
+        ("Network connection", "网络连接"),
+        (
+            "Disconnect every network: Wi-Fi, a cable, tethering, a VPN.",
+            "断开所有网络：Wi-Fi、网线、网络共享、VPN。",
+        ),
+        (
+            "The phone still has a network: tethering, USB, Ethernet or VPN. Disconnect it.",
+            "手机仍连着网络：网络共享、USB、以太网或 VPN。请断开它。",
+        ),
     ),
 ];
 
@@ -197,17 +223,17 @@ const RADIOS: [(RadioKind, &str, &str, &str); 4] = [
 /// home screen's wheel. Signing is not limited: a request names its own account.
 pub const ACCOUNTS: u32 = 100;
 
-fn network_name(n: Network) -> &'static str {
+fn network_name(n: Network) -> Words {
     match n {
-        Network::Bitcoin => "Bitcoin",
-        Network::Evm => "Ethereum & EVM",
+        Network::Bitcoin => ("Bitcoin", "Bitcoin"),
+        Network::Evm => ("Ethereum & EVM", "Ethereum 和 EVM"),
     }
 }
 
-fn network_assets(n: Network) -> &'static str {
+fn network_assets(n: Network) -> Words {
     match n {
-        Network::Bitcoin => "BTC",
-        Network::Evm => "ETH, ERC-20 tokens",
+        Network::Bitcoin => ("BTC", "BTC"),
+        Network::Evm => ("ETH, ERC-20 tokens", "ETH、ERC-20 代币"),
     }
 }
 
@@ -285,7 +311,7 @@ impl Model {
 }
 
 impl Airkeys {
-    fn show_code(&self, model: &mut Model, title: String, caption: String, message: Message, back: Phase) {
+    fn show_code(&self, model: &mut Model, title: Text, caption: Text, message: Message, back: Phase) {
         let json = message.to_json();
         model.phase = Phase::Code { title, caption, message, json, back: Box::new(back) };
     }
@@ -300,30 +326,33 @@ impl Airkeys {
                 match wallet.address(n, index) {
                     Ok(address) => accounts.push(Account { network: n, index, address }),
                     Err(e) => {
-                        model.toast = Some(e.0);
+                        model.toast = Some(e.into());
                         return;
                     }
                 }
             }
         }
-        let names: Vec<_> = networks.iter().map(|n| network_name(*n)).collect();
+        let (en, zh): (Vec<_>, Vec<_>) = networks.iter().map(|n| network_name(*n)).unzip();
         let which = match indexes.len() {
-            1 => format!("Account #{}", indexes.start),
-            _ => format!("Accounts #{} to #{}", indexes.start, indexes.end - 1),
+            1 => text!("Account #{}", "账户 #{}", indexes.start),
+            _ => text!("Accounts #{} to #{}", "账户 #{} 到 #{}", indexes.start, indexes.end - 1),
         };
-        let caption =
-            format!("{which} · {}. Addresses only: no public key leaves this phone.", names.join(", "));
-        self.show_code(model, "Show this to the web app".into(), caption, Message::Accounts(accounts), back);
+        let caption = Text {
+            en: format!("{} · {} · addresses only", which.en, en.join(", ")),
+            zh: format!("{} · {} · 仅地址", which.zh, zh.join("、")),
+        };
+        let title = text!("Show this to the web app", "给网页助手扫描");
+        self.show_code(model, title, caption, Message::Accounts(accounts), back);
     }
 
     /// A Lumen Code transfer arrived while scanning for a request.
     fn received(&self, model: &mut Model, bytes: &[u8]) -> Cmd {
-        let refuse = |model: &mut Model, title: &str, message: String| {
-            model.phase = Phase::Refused { title: title.into(), message };
+        let refuse = |model: &mut Model, title: Text, message: Text| {
+            model.phase = Phase::Refused { title, message };
             haptic(Haptic::Error)
         };
         match Message::parse(bytes) {
-            Err(e) => refuse(model, "Not an Airkeys request", e.0),
+            Err(e) => refuse(model, text!("Not an Airkeys request", "不是 Airkeys 请求"), e.into()),
             Ok(Message::Sign(request)) => match &model.wallet {
                 None => Command::done(),
                 Some(wallet) => match review(&request, wallet) {
@@ -332,14 +361,17 @@ impl Airkeys {
                         model.phase = Phase::Review { review: Box::new(r) };
                         haptic(if warn { Haptic::Warning } else { Haptic::Success })
                     }
-                    Err(e) => refuse(model, "Airkeys will not sign this", e.0),
+                    Err(e) => {
+                        refuse(model, text!("Airkeys will not sign this", "Airkeys 拒绝签名"), e.into())
+                    }
                 },
             },
             Ok(m) => refuse(
                 model,
-                "This is not a request",
-                format!(
-                    "This code holds an “{}” message from a phone. Scan the code on the Send screen of the web app.",
+                text!("This is not a request", "这不是请求"),
+                text!(
+                    "This code holds the phone's “{}” message. Scan the code on the web app's Send screen.",
+                    "这个动态码里是手机的“{}”消息。请扫描网页助手“转出”页面上的动态码。",
                     m.type_name()
                 ),
             ),
@@ -356,7 +388,7 @@ impl Airkeys {
             }
             Err(e) => {
                 // the camera stays off until the person tries again
-                *problem = Some(e.0);
+                *problem = Some(e.into());
                 haptic(Haptic::Error)
             }
         }
@@ -383,12 +415,17 @@ impl Airkeys {
 
     fn action(&self, action: Action, model: &mut Model) -> Cmd {
         let open = model.wallet.is_some();
-        // while the phone is online, only the radios and closing the wallet are heard
-        if !model.offline() && !matches!(action, Action::Radios { .. } | Action::Close | Action::DismissToast)
+        // while the phone is online, only the radios, the language and closing the wallet are heard
+        if !model.offline()
+            && !matches!(
+                action,
+                Action::Radios { .. } | Action::Close | Action::DismissToast | Action::Language { .. }
+            )
         {
             return Command::done();
         }
         match action {
+            Action::Language { language } => model.language = language,
             Action::Close => model.forget(),
             Action::Radios { wifi, bluetooth, cellular, network } => {
                 model.radios = [wifi, bluetooth, cellular, network]
@@ -421,7 +458,7 @@ impl Airkeys {
                             let passphrase = Zeroizing::new(String::new());
                             model.phase = Phase::Passphrase { phrase, typed, passphrase, problem: None };
                         }
-                        Err(e) => model.toast = Some(e.0),
+                        Err(e) => model.toast = Some(e.into()),
                     }
                 }
             }
@@ -443,7 +480,7 @@ impl Airkeys {
                         model.phase = Phase::Home;
                         return haptic(Haptic::Success);
                     }
-                    Err(e) => *problem = Some(e.0),
+                    Err(e) => *problem = Some(e.into()),
                 }
             }
 
@@ -480,7 +517,7 @@ impl Airkeys {
                         Network::ALL.iter().zip(selected).filter(|(_, s)| *s).map(|(n, _)| *n).collect();
                     let indexes = if all { 0..ACCOUNTS } else { model.index..model.index + 1 };
                     if networks.is_empty() {
-                        model.toast = Some("Choose at least one network.".into());
+                        model.toast = Some(text!("Choose at least one network.", "至少选择一个网络。"));
                     } else {
                         self.share(model, &networks, indexes, Phase::Home);
                     }
@@ -506,7 +543,8 @@ impl Airkeys {
             }
             Action::CameraFailed { message } => {
                 if let Phase::Scan { problem, .. } = &mut model.phase {
-                    *problem = Some(message);
+                    // from the shell, in its own language
+                    *problem = Some(Text::same(message));
                 }
             }
             Action::Reject => {
@@ -521,19 +559,24 @@ impl Airkeys {
                 return match review.sign(wallet) {
                     Ok(signed) => {
                         let n = signed.txs.len();
-                        let what = if n == 1 {
-                            "the transaction".to_string()
+                        let caption = if n == 1 {
+                            text!(
+                                "Scan this with the web app to broadcast the transaction. Until then, nothing is sent.",
+                                "用网页助手扫描这个动态码来广播这笔交易。在此之前，什么都不会发出。"
+                            )
                         } else {
-                            format!("all {n} transactions")
+                            text!(
+                                "Scan this with the web app to broadcast all {n} transactions. Until then, nothing is sent.",
+                                "用网页助手扫描这个动态码来广播全部 {n} 笔交易。在此之前，什么都不会发出。"
+                            )
                         };
-                        let caption = format!(
-                            "Scan this with the web app to broadcast {what}. Nothing is sent until the web app broadcasts it."
-                        );
-                        self.show_code(model, "Signed".into(), caption, Message::Signed(signed), Phase::Home);
+                        let title = text!("Signed", "已签名");
+                        self.show_code(model, title, caption, Message::Signed(signed), Phase::Home);
                         haptic(Haptic::Success)
                     }
                     Err(e) => {
-                        model.phase = Phase::Refused { title: "Signing failed".into(), message: e.0 };
+                        let title = text!("Signing failed", "签名失败");
+                        model.phase = Phase::Refused { title, message: e.into() };
                         haptic(Haptic::Error)
                     }
                 };
@@ -630,7 +673,7 @@ fn complete_last(text: &str, word: &str) -> Zeroizing<String> {
 }
 
 /// What the import screen says about the phrase typed so far.
-fn phrase_input(text: &str) -> PhraseInput {
+fn phrase_input(text: &str, lang: Language) -> PhraseInput {
     let lower = text.to_lowercase();
     let tokens: Vec<&str> = lower.split_whitespace().collect();
     let typing = !text.is_empty() && !text.ends_with(char::is_whitespace);
@@ -658,41 +701,48 @@ fn phrase_input(text: &str) -> PhraseInput {
         .collect();
     let mut problem = words.iter().position(|w| w.state == WordState::Unknown).map(|i| {
         if typing && i == words.len() - 1 {
-            format!("No word in the list starts with “{}”.", words[i].word)
+            text!("No word in the list starts with “{}”.", "词表中没有以“{}”开头的词。", words[i].word)
         } else {
-            format!("Word {} is not in the BIP-39 word list.", i + 1)
+            text!("Word {} is not in the BIP-39 word list.", "第 {} 个词不在 BIP-39 词表中。", i + 1)
         }
     });
     let valid = Mnemonic::parse(text).is_ok();
     if problem.is_none() && !valid && !typing && Mnemonic::WORD_COUNTS.contains(&words.len()) {
-        problem = Some(
-            "These words are in the list, but the phrase is not valid. Check each word and their order."
-                .into(),
-        );
+        problem = Some(text!(
+            "The words are in the list, but the phrase is not valid. Check each word and the order.",
+            "这些词都在词表中，但助记词无效。请检查每个词和顺序。"
+        ));
     }
     let can_continue = words.len() >= Mnemonic::WORD_COUNTS[0] && problem.is_none();
+    let problem = problem.map(|p| lang.of(&p));
     PhraseInput { text: text.to_string(), words, suggestions, problem, valid, can_continue }
 }
 
-fn account_row(wallet: &Wallet, network: Network, index: u32) -> AccountRow {
+fn account_row(wallet: &Wallet, network: Network, index: u32, lang: Language) -> AccountRow {
+    let ((name_en, name_zh), (assets_en, assets_zh)) = (network_name(network), network_assets(network));
     AccountRow {
         network: network.into(),
-        name: network_name(network).into(),
-        assets: network_assets(network).into(),
+        name: lang.pick(name_en, name_zh).into(),
+        assets: lang.pick(assets_en, assets_zh).into(),
         index,
         address: wallet.address(network, index).unwrap_or_default(),
         path: network.path(index),
     }
 }
 
-fn review_view(r: &Review) -> ReviewView {
+fn review_view(r: &Review, lang: Language) -> ReviewView {
     let n = r.transfers.len();
     // a Bitcoin request is one transaction, whatever it pays; an EVM request one per transfer
     let several = r.network == Network::Evm && n > 1;
-    let hold_label = if several { format!("Hold to sign {n} transactions") } else { "Hold to sign".into() };
+    let hold_label = if several {
+        text!("Hold to sign {n} transactions", "按住签名 {n} 笔交易")
+    } else {
+        text!("Hold to sign", "按住签名")
+    };
+    let all = |texts: &[Text]| texts.iter().map(|t| lang.of(t)).collect();
     ReviewView {
         network: r.network.into(),
-        chain: r.chain.clone(),
+        chain: lang.of(&r.chain),
         testnet: r.testnet,
         from_index: r.from.index,
         from_address: r.from.address.clone(),
@@ -701,21 +751,21 @@ fn review_view(r: &Review) -> ReviewView {
             .iter()
             .enumerate()
             .map(|(k, t)| TransferView {
-                label: several.then(|| format!("{} of {n}", k + 1)),
+                label: several.then(|| lang.of(&text!("{} of {n}", "第 {} 笔，共 {n} 笔", k + 1))),
                 to: t.to.clone(),
                 own_index: t.own,
                 amount: t.amount.clone(),
-                asset: t.asset.clone(),
+                asset: lang.of(&t.asset),
                 token: t.token.clone(),
                 verified: t.verified,
-                note: t.note.clone(),
+                note: t.note.as_ref().map(|n| lang.of(n)),
             })
             .collect(),
-        fee: r.fee.clone(),
-        details: r.details.iter().map(|(l, v)| Detail { label: l.clone(), value: v.clone() }).collect(),
-        warnings: r.warnings.clone(),
-        notices: r.notices.clone(),
-        hold_label,
+        fee: lang.of(&r.fee),
+        details: r.details.iter().map(|(l, v)| Detail { label: lang.of(l), value: lang.of(v) }).collect(),
+        warnings: all(&r.warnings),
+        notices: all(&r.notices),
+        hold_label: lang.of(&hold_label),
     }
 }
 
@@ -754,6 +804,9 @@ impl App for Airkeys {
 
     fn view(&self, model: &Model) -> ViewModel {
         let wallet = model.wallet.as_ref();
+        let lang = model.language;
+        let say = |t: &Text| lang.of(t);
+        let pick = |(en, zh): Words| lang.pick(en, zh).to_string();
         let screen = match (&model.phase, wallet) {
             _ if !model.offline() => Screen::Offline {
                 radios: RADIOS
@@ -761,49 +814,54 @@ impl App for Airkeys {
                     .zip(model.radios)
                     .map(|(&(kind, name, on, active), state)| RadioRow {
                         kind,
-                        name: name.to_string(),
+                        name: pick(name),
                         state,
                         detail: match state {
                             RadioState::Off => None,
-                            RadioState::On => Some(on.to_string()),
-                            RadioState::Active => Some(active.to_string()),
-                            RadioState::Unknown => {
-                                Some("This phone does not say. Airkeys counts it as on.".into())
-                            }
+                            RadioState::On => Some(pick(on)),
+                            RadioState::Active => Some(pick(active)),
+                            RadioState::Unknown => Some(pick((
+                                "This phone does not say. Airkeys counts it as on.",
+                                "这部手机没有提供状态。Airkeys 按已打开处理。",
+                            ))),
                         },
                     })
                     .collect(),
                 wallet_open: wallet.is_some(),
             },
             (Phase::Welcome, _) => Screen::Welcome,
-            (Phase::Import { text }, _) => Screen::Import { phrase: phrase_input(text) },
+            (Phase::Import { text }, _) => Screen::Import { phrase: phrase_input(text, lang) },
             (Phase::Passphrase { passphrase, problem, .. }, _) => Screen::Passphrase {
                 passphrase: passphrase.to_string(),
-                problem: problem.clone().or_else(|| check_passphrase(passphrase).err().map(|e| e.0)),
+                problem: problem
+                    .as_ref()
+                    .map(say)
+                    .or_else(|| check_passphrase(passphrase).err().map(|e| say(&e.into()))),
             },
             (Phase::Home, Some(w)) => Screen::Home {
                 index: model.index,
-                accounts: Network::ALL.iter().map(|&n| account_row(w, n, model.index)).collect(),
+                accounts: Network::ALL.iter().map(|&n| account_row(w, n, model.index, lang)).collect(),
             },
             (Phase::Account { network }, Some(w)) => {
-                Screen::Account { account: account_row(w, *network, model.index) }
+                Screen::Account { account: account_row(w, *network, model.index, lang) }
             }
             (Phase::Connect { selected, all }, Some(_)) => Screen::Connect {
                 index: model.index,
                 scopes: vec![
                     ScopeChoice {
                         all: false,
-                        title: format!("Account #{}", model.index),
-                        detail: "The account on the home screen.".into(),
+                        title: say(&text!("Account #{}", "账户 #{}", model.index)),
+                        detail: pick(("The account on the home screen.", "首页上的账户。")),
                         selected: !all,
                     },
                     ScopeChoice {
                         all: true,
-                        title: format!("All {ACCOUNTS} accounts"),
-                        detail: format!(
-                            "#0 to #{}, so the web app shows every balance. It, and the services it asks for balances, see that these addresses belong together.",
+                        title: say(&text!("All {ACCOUNTS} accounts", "全部 {ACCOUNTS} 个账户")),
+                        detail: say(&text!(
+                            "#0 to #{}, for every balance. The web app and the services it reads balances from can tell these addresses belong together.",
+                            "#0 到 #{}，可查看全部余额。网页助手和它查询余额所用的服务能看出这些地址属于同一个钱包。",
                             ACCOUNTS - 1
-                        ),
+                        )),
                         selected: *all,
                     },
                 ],
@@ -812,37 +870,44 @@ impl App for Airkeys {
                     .zip(selected)
                     .map(|(n, s)| NetworkChoice {
                         network: (*n).into(),
-                        name: network_name(*n).into(),
+                        name: pick(network_name(*n)),
                         selected: *s,
                     })
                     .collect(),
             },
             (Phase::Code { title, caption, json, .. }, _) => Screen::Code {
-                title: title.clone(),
-                caption: caption.clone(),
+                title: say(title),
+                caption: say(caption),
                 json: json.clone(),
                 message: crate::view::lay_out_json(json),
             },
             (Phase::Scan { purpose, progress, problem, .. }, _) => {
                 let (title, hint) = match purpose {
-                    Purpose::Request => {
-                        ("Scan request", "Point the camera at the code on the web app's Send screen.")
-                    }
+                    Purpose::Request => (
+                        ("Scan request", "扫描请求"),
+                        (
+                            "Point the camera at the code on the web app's Send screen.",
+                            "把摄像头对准网页助手“转出”页面上的动态码。",
+                        ),
+                    ),
                     Purpose::Phrase => (
-                        "Scan recovery phrase",
-                        "Point the camera at your SeedQR or CompactSeedQR. The words appear for you to check before anything opens.",
+                        ("Scan recovery phrase", "扫描助记词"),
+                        (
+                            "Point the camera at your SeedQR or CompactSeedQR. You check the words before the wallet opens.",
+                            "把摄像头对准你的 SeedQR 或 CompactSeedQR。打开钱包前，你会先核对这些词。",
+                        ),
                     ),
                 };
                 Screen::Scan {
-                    title: title.into(),
-                    hint: hint.into(),
+                    title: pick(title),
+                    hint: pick(hint),
                     progress: progress.map(|(received, needed)| ScanProgress { received, needed }),
-                    problem: problem.clone(),
+                    problem: problem.as_ref().map(say),
                 }
             }
-            (Phase::Review { review }, Some(_)) => Screen::Review { review: review_view(review) },
+            (Phase::Review { review }, Some(_)) => Screen::Review { review: review_view(review, lang) },
             (Phase::Refused { title, message }, _) => {
-                Screen::Refused { title: title.clone(), message: message.clone() }
+                Screen::Refused { title: say(title), message: say(message) }
             }
             // a wallet screen without a wallet cannot happen; show the start
             (_, None) => Screen::Welcome,
@@ -850,12 +915,13 @@ impl App for Airkeys {
         ViewModel {
             rev: model.rev,
             screen,
-            toast: model.toast.clone(),
+            toast: model.toast.as_ref().map(say),
             version: format!(
                 "Airkeys {} · protocol v{}",
                 env!("CARGO_PKG_VERSION"),
                 airkeys_wallet::protocol::VERSION
             ),
+            language: lang,
         }
     }
 }
@@ -901,19 +967,22 @@ mod tests {
 
     #[test]
     fn phrase_hints() {
-        let p = phrase_input("abandon abandon xyz abandon");
+        let en = Language::En;
+        let p = phrase_input("abandon abandon xyz abandon", en);
         assert_eq!(p.problem.as_deref(), Some("Word 3 is not in the BIP-39 word list."));
         assert_eq!(p.words[2].state, WordState::Unknown);
-        let p = phrase_input("abandon ab");
+        let p = phrase_input("abandon ab", en);
         assert_eq!(p.suggestions, vec!["abandon", "ability", "able", "about"]);
         assert_eq!(p.words[1].state, WordState::Typing);
         assert!(p.problem.is_none());
-        let p = phrase_input("abandon qq");
+        let p = phrase_input("abandon qq", en);
         assert!(p.problem.unwrap().contains("starts with “qq”"));
         let twelve = "abandon ".repeat(12);
-        assert!(phrase_input(&twelve).problem.unwrap().contains("not valid"));
+        assert!(phrase_input(&twelve, en).problem.unwrap().contains("not valid"));
+        let zh = phrase_input(&twelve, Language::Zh).problem.unwrap();
+        assert!(zh.contains("助记词无效"), "{zh}");
         let ok = "abandon ".repeat(11) + "about ";
-        let p = phrase_input(&ok);
+        let p = phrase_input(&ok, en);
         assert!(p.valid && p.problem.is_none() && p.suggestions.is_empty() && p.words.len() == 12);
     }
 }

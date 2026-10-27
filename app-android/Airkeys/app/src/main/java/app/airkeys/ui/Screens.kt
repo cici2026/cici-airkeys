@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.text.TextRange
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,6 +71,11 @@ import kotlinx.coroutines.delay
 /** Draws the core's view; every tap becomes an action for the core. */
 @Composable
 fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> CodeFrame?, camera: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalLanguage provides view.language) { Screens(view, act, codeFrame, camera) }
+}
+
+@Composable
+private fun Screens(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> CodeFrame?, camera: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(Ink.bg)) {
         when (val s = view.screen) {
             is Screen.Offline -> Offline(s)
@@ -78,11 +84,17 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
             is Screen.Passphrase -> Passphrase(s, act)
             is Screen.Home -> Home(s, act)
             is Screen.Account -> AccountScreen(s.account, act)
-            is Screen.Connect -> Page("Connect", onBack = { act(Action.Back) }, actions = {
-                PrimaryButton("Show code", { act(Action.ShowAccounts) }, enabled = s.choices.any { it.selected }, icon = Icons.code)
+            is Screen.Connect -> Page(tr("Connect", "连接"), onBack = { act(Action.Back) }, actions = {
+                PrimaryButton(tr("Show code", "显示动态码"), { act(Action.ShowAccounts) }, enabled = s.choices.any { it.selected }, icon = Icons.code)
             }) {
-                Text("Show your accounts to the web app", style = Type.title)
-                Text("The web app reads balances and prepares transfers. It gets addresses only — never a public key.", style = Type.dim)
+                Text(tr("Show your accounts to the web app", "向网页助手显示你的账户"), style = Type.title)
+                Text(
+                    tr(
+                        "The web app gets addresses only, no public keys. It reads balances and prepares transfers.",
+                        "网页助手只得到地址，没有公钥。它查询余额，准备转账。",
+                    ),
+                    style = Type.dim,
+                )
                 Card(padding = 6.dp) {
                     for (c in s.scopes) {
                         Row(
@@ -115,13 +127,13 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 var reading by remember(s.json) { mutableStateOf(false) }
                 Page(s.title, onBack = { act(Action.Back) }, scroll = false, trailing = {
                     Text(
-                        if (reading) "Code" else "Message",
+                        if (reading) tr("Code", "动态码") else tr("Message", "消息"),
                         style = Type.body.copy(color = Ink.lamp, fontWeight = FontWeight.SemiBold),
                         modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { reading = !reading }.padding(horizontal = 12.dp, vertical = 10.dp),
                     )
-                }, actions = { PrimaryButton("Done", { act(Action.Done) }) }) {
+                }, actions = { PrimaryButton(tr("Done", "完成"), { act(Action.Done) }) }) {
                     if (reading) {
-                        Text("What the code says", style = Type.heading)
+                        Text(tr("What the code says", "动态码的内容"), style = Type.heading)
                         // a line at a time, drawn as it scrolls into view: all 100 accounts are
                         // about a thousand lines, too many to lay out at once
                         val shape = RoundedCornerShape(16.dp)
@@ -145,7 +157,7 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 }
             }
             is Screen.Scan -> Page(s.title, onBack = { act(Action.Back) }, scroll = false, actions = {
-                if (s.problem != null) PrimaryButton("Try again", { act(Action.Scan) }, icon = Icons.scan)
+                if (s.problem != null) PrimaryButton(tr("Try again", "重试"), { act(Action.Scan) }, icon = Icons.scan)
             }) {
                 Box(Modifier.fillMaxWidth().aspectRatio(0.8f).clip(RoundedCornerShape(20.dp)).background(Color(0xFF05060A))) {
                     if (s.problem == null) camera()
@@ -155,7 +167,7 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 when {
                     s.problem != null -> Notice(s.problem!!, Ink.danger)
                     p != null && p.needed > 0u -> {
-                        Text("Receiving…", style = Type.heading)
+                        Text(tr("Receiving…", "正在接收…"), style = Type.heading)
                         LinearProgressIndicator(
                             progress = { (p.received.toFloat() / p.needed.toFloat()).coerceIn(0f, 1f) },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
@@ -167,7 +179,7 @@ fun App(view: ViewModel, act: (Action) -> ViewModel, codeFrame: (Int, Int) -> Co
                 }
             }
             is Screen.Review -> Review(s.review, act)
-            is Screen.Refused -> Page(onBack = { act(Action.Back) }, actions = { SecondaryButton("Back", { act(Action.Done) }) }) {
+            is Screen.Refused -> Page(onBack = { act(Action.Back) }, actions = { SecondaryButton(tr("Back", "返回"), { act(Action.Done) }) }) {
                 Center {
                     Icon(Icons.warning, null, tint = Ink.danger, modifier = Modifier.size(52.dp))
                     CenteredText(s.title, Type.title.copy(fontSize = 24.sp))
@@ -206,9 +218,12 @@ private fun Offline(s: Screen.Offline) {
         Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(Ink.warn.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
             Icon(Icons.airplane, null, tint = Ink.warn, modifier = Modifier.size(32.dp))
         }
-        Text("Take this phone offline", style = Type.title)
+        Text(tr("Take this phone offline", "让这部手机断网"), style = Type.title)
         Text(
-            "Airkeys works only on a phone with every radio off. Turn on Airplane mode, then make sure Wi-Fi and Bluetooth stay off.",
+            tr(
+                "Airkeys works only with every radio off. Turn on Airplane mode, then check that Wi-Fi and Bluetooth are off too.",
+                "Airkeys 只在所有无线都关闭时工作。请打开飞行模式，再确认 Wi-Fi 和蓝牙也已关闭。",
+            ),
             style = Type.dim,
         )
         val context = LocalContext.current
@@ -218,16 +233,16 @@ private fun Offline(s: Screen.Offline) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(r.name, style = Type.body, modifier = Modifier.weight(1f))
                         when (r.state) {
-                            RadioState.OFF -> Pill("Off", Ink.safe, Icons.check)
-                            RadioState.ON -> Pill("On", Ink.warn, Icons.warning)
-                            RadioState.ACTIVE -> Pill("Still active", Ink.warn, Icons.warning)
-                            RadioState.UNKNOWN -> Pill("Unknown", Ink.dim)
+                            RadioState.OFF -> Pill(tr("Off", "已关闭"), Ink.safe, Icons.check)
+                            RadioState.ON -> Pill(tr("On", "已打开"), Ink.warn, Icons.warning)
+                            RadioState.ACTIVE -> Pill(tr("Still active", "仍在工作"), Ink.warn, Icons.warning)
+                            RadioState.UNKNOWN -> Pill(tr("Unknown", "未知"), Ink.dim)
                         }
                     }
                     r.detail?.let { Text(it, style = Type.small, modifier = Modifier.padding(top = 4.dp, end = 4.dp)) }
                     if (r.state == RadioState.ON || r.state == RadioState.ACTIVE) {
                         Text(
-                            "Open settings",
+                            tr("Open settings", "打开设置"),
                             style = Type.small.copy(color = Ink.lamp, fontWeight = FontWeight.SemiBold),
                             modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(8.dp))
                                 .clickable { openRadioSettings(context, r.kind, r.state) }.padding(vertical = 4.dp),
@@ -236,7 +251,9 @@ private fun Offline(s: Screen.Offline) {
                 }
             }
         }
-        if (s.walletOpen) Notice("Your wallet is still open. Airkeys carries on as soon as the phone is offline again.", Ink.dim, Icons.lock)
+        if (s.walletOpen) {
+            Notice(tr("Your wallet is still open. Airkeys continues once the phone is offline.", "钱包仍然打开着。手机断网后，Airkeys 会继续。"), Ink.dim, Icons.lock)
+        }
     }
 }
 
@@ -262,20 +279,41 @@ private fun openRadioSettings(context: Context, kind: RadioKind, state: RadioSta
 @Composable
 private fun Welcome(version: String, act: (Action) -> ViewModel) {
     Page(actions = {
-        PrimaryButton("Enter recovery phrase", { act(Action.Begin) })
-        SecondaryButton("Scan SeedQR", { act(Action.Scan) }, icon = Icons.scan)
+        PrimaryButton(tr("Enter recovery phrase", "输入助记词"), { act(Action.Begin) })
+        SecondaryButton(tr("Scan SeedQR", "扫描 SeedQR"), { act(Action.Scan) }, icon = Icons.scan)
     }) {
         Spacer(Modifier.height(24.dp))
         Mark(76.dp)
         Text("Airkeys", style = Type.title.copy(fontSize = 38.sp, lineHeight = 44.sp))
         Text(
-            "A cold wallet for a phone that stays offline. It shows the world addresses — never a public key — so the funds behind them stay out of reach, even of a quantum computer.",
+            tr("A cold wallet for a phone that stays offline.", "装在离线手机上的冷钱包。"),
             style = Type.dim.copy(fontSize = 16.sp, lineHeight = 23.sp),
         )
         Spacer(Modifier.height(8.dp))
-        Feature(Icons.lock, "Nothing is stored", "Bring your recovery phrase each time. It stays in memory until you close the wallet or the app.")
-        Feature(Icons.shield, "Addresses only", "Connecting to the web app shares addresses, never the keys behind them.")
-        Feature(Icons.eye, "Clear signing", "Airkeys signs transfers only, after showing every recipient, amount and fee.")
+        Feature(
+            Icons.lock,
+            tr("Nothing is stored", "不存储"),
+            tr(
+                "Bring your recovery phrase each time. It stays in memory until you close the wallet or the app.",
+                "每次使用时输入助记词。它只在内存中，直到你关闭钱包或 App。",
+            ),
+        )
+        Feature(
+            Icons.shield,
+            tr("Addresses only", "只给地址"),
+            tr(
+                "The web app gets addresses, never public keys. Until an account sends, its key stays unknown.",
+                "网页助手只得到地址，从不得到公钥。账户转出之前，它的公钥无人知晓。",
+            ),
+        )
+        Feature(
+            Icons.eye,
+            tr("Clear signing", "明文签名"),
+            tr(
+                "Airkeys signs transfers only, after showing every recipient, amount and fee.",
+                "Airkeys 只签转账，并先显示每个收款方、金额和手续费。",
+            ),
+        )
         Text(version, style = Type.small.copy(color = Ink.faint))
     }
 }
@@ -300,13 +338,13 @@ private fun Import(p: PhraseInput, act: (Action) -> ViewModel) {
     var select by remember { mutableStateOf<Selection?>(null) }
     val spans = Regex("\\S+").findAll(p.text).map { TextRange(it.range.first, it.range.last + 1) }.toList()
     LaunchedEffect(Unit) { focus.requestFocus() }
-    Page("Recovery phrase", onBack = { act(Action.Back) }, trailing = {
-        IconAction(Icons.scan, "Scan SeedQR", { act(Action.Scan) }, Ink.dim)
+    Page(tr("Recovery phrase", "助记词"), onBack = { act(Action.Back) }, trailing = {
+        IconAction(Icons.scan, tr("Scan SeedQR", "扫描 SeedQR"), { act(Action.Scan) }, Ink.dim)
     }, actions = {
-        PrimaryButton("Continue", { act(Action.PhraseDone) }, enabled = p.canContinue)
+        PrimaryButton(tr("Continue", "继续"), { act(Action.PhraseDone) }, enabled = p.canContinue)
     }) {
-        Text("Enter your recovery phrase", style = Type.title)
-        Text("Type the first letters of each word and a space: Airkeys completes it.", style = Type.dim)
+        Text(tr("Enter your recovery phrase", "输入你的助记词"), style = Type.title)
+        Text(tr("Type the first letters of each word and a space: Airkeys completes it.", "每个词输入前几个字母和一个空格，Airkeys 会补全。"), style = Type.dim)
         Field(
             p.text, {}, "abandon ability …", Modifier.focusRequester(focus), singleLine = false, minLines = 3, error = p.problem != null,
             rewrite = { t -> (act(Action.PhraseInput(t)).screen as? Screen.Import)?.phrase?.text ?: t },
@@ -316,9 +354,9 @@ private fun Import(p: PhraseInput, act: (Action) -> ViewModel) {
         p.problem?.let { Text(it, style = Type.small.copy(color = Ink.danger)) }
         if (p.words.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Label("${p.words.size} words")
+                Label(tr("${p.words.size} words", "${p.words.size} 个词"))
                 Spacer(Modifier.weight(1f))
-                if (p.valid) Pill("Valid phrase", Ink.safe, Icons.check)
+                if (p.valid) Pill(tr("Valid phrase", "助记词有效"), Ink.safe, Icons.check)
             }
             // as on a recovery card: even columns, numbers aligned
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -365,14 +403,21 @@ private fun Import(p: PhraseInput, act: (Action) -> ViewModel) {
 
 @Composable
 private fun Passphrase(s: Screen.Passphrase, act: (Action) -> ViewModel) {
-    Page("Passphrase", onBack = { act(Action.Back) }, actions = {
-        PrimaryButton("Open wallet", { act(Action.Open) }, enabled = s.problem == null)
+    Page(tr("Passphrase", "密码短语"), onBack = { act(Action.Back) }, actions = {
+        PrimaryButton(tr("Open wallet", "打开钱包"), { act(Action.Open) }, enabled = s.problem == null)
     }) {
-        Text("Passphrase", style = Type.title)
-        Text("Only if your wallet has one — most do not. Leave it empty otherwise.", style = Type.dim)
-        Field(s.passphrase, { act(Action.PassphraseInput(it)) }, "No passphrase", secret = true, error = s.problem != null)
+        Text(tr("Passphrase", "密码短语"), style = Type.title)
+        Text(tr("Leave this empty unless your wallet has one.", "如果钱包没有密码短语，这里留空。"), style = Type.dim)
+        Field(s.passphrase, { act(Action.PassphraseInput(it)) }, tr("No passphrase", "无密码短语"), secret = true, error = s.problem != null)
         s.problem?.let { Text(it, style = Type.small.copy(color = Ink.danger)) }
-        Notice("A passphrase opens a different wallet from the same words, and any passphrase opens one. Airkeys cannot tell a mistyped passphrase: check the addresses it shows.", Ink.dim, Icons.lock)
+        Notice(
+            tr(
+                "Each passphrase opens a different wallet from the same words, so a mistyped one opens the wrong wallet without an error. Check the addresses.",
+                "同一组助记词配不同的密码短语，打开的是不同的钱包。输错了不会报错，只会打开另一个钱包。请核对地址。",
+            ),
+            Ink.dim,
+            Icons.lock,
+        )
     }
 }
 
@@ -386,17 +431,17 @@ private fun Home(s: Screen.Home, act: (Action) -> ViewModel) {
             ) {
                 Icon(Icons.lock, null, tint = Ink.dim, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Close wallet", style = Type.small.copy(color = Ink.dim))
+                Text(tr("Close wallet", "关闭钱包"), style = Type.small.copy(color = Ink.dim))
             }
         },
         actions = {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SecondaryButton("Connect", { act(Action.Connect) }, Modifier.weight(1f), icon = Icons.code)
-                PrimaryButton("Scan request", { act(Action.Scan) }, Modifier.weight(1.4f), icon = Icons.scan)
+                SecondaryButton(tr("Connect", "连接"), { act(Action.Connect) }, Modifier.weight(1f), icon = Icons.code)
+                PrimaryButton(tr("Scan request", "扫描请求"), { act(Action.Scan) }, Modifier.weight(1.4f), icon = Icons.scan)
             }
         },
     ) {
-        NumberWheel(s.index.toInt(), accountCount().toInt(), { act(Action.Account(it.toUInt())) }, unit = "Account")
+        NumberWheel(s.index.toInt(), accountCount().toInt(), { act(Action.Account(it.toUInt())) }, unit = tr("Account", "账户"))
         for (a in s.accounts) AccountCard(a) { act(Action.OpenAccount(a.network)) }
     }
 }
@@ -418,25 +463,32 @@ private fun AccountCard(a: AccountRow, onClick: () -> Unit) {
 @Composable
 private fun AccountScreen(a: AccountRow, act: (Action) -> ViewModel) {
     Page(a.name, onBack = { act(Action.Back) }, actions = {
-        PrimaryButton("Show to the web app", { act(Action.ShareAccount(a.network)) }, icon = Icons.code)
+        PrimaryButton(tr("Show to the web app", "显示给网页助手"), { act(Action.ShareAccount(a.network)) }, icon = Icons.code)
     }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             NetworkBadge(a.network, 52.dp)
             Column(Modifier.padding(start = 14.dp).weight(1f)) {
-                Text("Account #${a.index}", style = Type.heading)
+                Text(tr("Account #${a.index}", "账户 #${a.index}"), style = Type.heading)
                 Text(a.assets, style = Type.small)
             }
         }
         Card {
-            Label("Address")
+            Label(tr("Address", "地址"))
             Address(a.address, style = Type.mono.copy(fontSize = 19.sp, lineHeight = 30.sp))
         }
         Card {
-            Label("Derivation path")
+            Label(tr("Derivation path", "派生路径"))
             Text(a.path, style = Type.mono)
-            Text("Every step is hardened.", style = Type.small)
+            Text(tr("Every step is hardened.", "每一级都是硬化派生。"), style = Type.small)
         }
-        Notice("The public key behind this address stays on this phone until the account first sends. Receiving reveals nothing.", Ink.safe, Icons.shield)
+        Notice(
+            tr(
+                "Its public key stays on this phone until the account first sends. Receiving does not reveal it.",
+                "账户第一次转出之前，它的公钥只在这部手机上。收款不会暴露公钥。",
+            ),
+            Ink.safe,
+            Icons.shield,
+        )
     }
 }
 
@@ -487,9 +539,10 @@ private fun Viewfinder() {
 @Composable
 private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
     var details by remember { mutableStateOf(false) }
-    Page("Review", onBack = { act(Action.Reject) }, actions = {
+    val lang = LocalLanguage.current
+    Page(tr("Review", "核对"), onBack = { act(Action.Reject) }, actions = {
         HoldButton(r.holdLabel, { act(Action.Sign) }, warn = r.warnings.isNotEmpty())
-        SecondaryButton("Reject", { act(Action.Reject) })
+        SecondaryButton(tr("Reject", "拒绝"), { act(Action.Reject) })
     }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             NetworkBadge(r.network, 44.dp)
@@ -498,9 +551,9 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
                     Text(r.chain, style = Type.heading)
                     // test coins have no value: never mistake one network for the other
                     if (r.testnet) Spacer(Modifier.width(10.dp))
-                    if (r.testnet) Pill("Testnet", Ink.warn)
+                    if (r.testnet) Pill(tr("Testnet", "测试网"), Ink.warn)
                 }
-                Text("From account #${r.fromIndex} · ${short(r.fromAddress)}", style = Type.small)
+                Text(tr("From account #${r.fromIndex}", "从账户 #${r.fromIndex}") + " · ${short(r.fromAddress)}", style = Type.small)
             }
         }
         for (w in r.warnings) Notice(w, Ink.warn)
@@ -512,11 +565,11 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
                     if (t.verified) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.check, null, tint = Ink.safe, modifier = Modifier.size(14.dp))
-                            Text("Listed token · ${short(it, 6)}", style = Type.small, modifier = Modifier.padding(start = 6.dp))
+                            Text(tr("Listed token", "已列入代币") + " · ${short(it, 6)}", style = Type.small, modifier = Modifier.padding(start = 6.dp))
                         }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Pill("Unlisted token", Ink.warn, Icons.warning)
+                            Pill(tr("Unlisted token", "未列入代币"), Ink.warn, Icons.warning)
                             Text(short(it, 6), style = Type.mono.copy(fontSize = 13.sp, color = Ink.dim), modifier = Modifier.padding(start = 10.dp))
                         }
                     }
@@ -527,28 +580,28 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
                     // the phone derived its own account's address: named, the address only to glance at
                     Text(
                         buildAnnotatedString {
-                            withStyle(SpanStyle(color = Ink.dim)) { append("to ") }
-                            withStyle(SpanStyle(color = Ink.text, fontWeight = FontWeight.SemiBold)) { append("Your account #$own") }
+                            withStyle(SpanStyle(color = Ink.dim)) { append(tr(lang, "to ", "转到")) }
+                            withStyle(SpanStyle(color = Ink.text, fontWeight = FontWeight.SemiBold)) { append(tr(lang, "Your account #$own", "你的账户 #$own")) }
                         },
                         style = Type.body,
                     )
                     Text(short(t.to, 4), style = Type.mono.copy(fontSize = 13.sp, color = Ink.dim))
                 } else {
-                    Text("to", style = Type.small)
+                    Text(tr("to", "转到"), style = Type.small)
                     Address(t.to, style = Type.mono.copy(fontSize = 16.sp, lineHeight = 25.sp))
                 }
                 t.note?.let { Text(it, style = Type.small) }
             }
         }
         Row(Modifier.padding(horizontal = 4.dp)) {
-            Text("Network fee, at most", style = Type.dim, modifier = Modifier.weight(1f))
+            Text(tr("Network fee, at most", "手续费上限"), style = Type.dim, modifier = Modifier.weight(1f))
             Text(r.fee, style = Type.body.copy(fontWeight = FontWeight.SemiBold))
         }
         for (n in r.notices) Notice(n, Ink.dim, Icons.open)
         Card(Modifier.clickable { details = !details }) {
             Row {
-                Text("Details", style = Type.body.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f))
-                Text(if (details) "Hide" else "Show", style = Type.small.copy(color = Ink.lamp))
+                Text(tr("Details", "详情"), style = Type.body.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f))
+                Text(if (details) tr("Hide", "隐藏") else tr("Show", "显示"), style = Type.small.copy(color = Ink.lamp))
             }
             if (details) {
                 for (d in r.details) {
@@ -557,7 +610,7 @@ private fun Review(r: ReviewView, act: (Action) -> ViewModel) {
                         Text(d.value, style = Type.small.copy(color = Ink.text))
                     }
                 }
-                Text("From", style = Type.small)
+                Text(tr("From", "付款地址"), style = Type.small)
                 Address(r.fromAddress, style = Type.mono.copy(fontSize = 13.sp))
             }
         }

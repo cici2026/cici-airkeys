@@ -1,0 +1,3 @@
+/* The permission prompts in Simplified Chinese; the English ones are in project.yml. */
+"NSCameraUsageDescription" = "Airkeys 用摄像头读取网页助手的动态码和你的 SeedQR。图像不会保存，也不会离开这部手机。";
+"NSBluetoothAlwaysUsageDescription" = "Airkeys 只在所有无线都关闭时工作，所以要检查蓝牙是否已关闭。它从不使用蓝牙。";

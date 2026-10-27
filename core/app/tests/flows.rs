@@ -5,9 +5,9 @@
 
 use airkeys::ops::{Action, RadioState, Request};
 use airkeys::runtime::{AirkeysCore, CameraFrame, Plane, Update};
-use airkeys::view::{NetworkKind, Screen, ViewModel, WordState};
+use airkeys::view::{Language, NetworkKind, Screen, ViewModel, WordState};
 use airkeys_wallet::protocol::Message;
-use airkeys_wallet::{Mnemonic, Network, Wallet};
+use airkeys_wallet::{Mnemonic, Network, Wallet, bitcoin, evm};
 use lumen::Renderer;
 use lumen::scan::{Image, Scanner};
 use lumen::transfer::{Finish, Receiver, Sender, prepare};
@@ -509,4 +509,350 @@ fn refuses_a_request_for_another_wallet() {
     s.act(Action::Scan);
     s.film(r#"{"airkeys":1,"type":"accounts","accounts":[{"network":"evm","index":0,"address":"0x00"}]}"#);
     assert!(matches!(&s.view.screen, Screen::Refused { title, .. } if title == "This is not a request"));
+}
+
+// ---------------------------------------------------------------- languages
+
+/// Whether `s` has a Chinese character in it.
+fn chinese(s: &str) -> bool {
+    s.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c))
+}
+
+/// Switches to Chinese and back, checking that each screen is the same screen in the other
+/// language, and that English comes back exactly. Returns the Chinese view.
+fn in_chinese(s: &mut Shell) -> ViewModel {
+    let english = s.view.clone();
+    assert_eq!(english.language, Language::En);
+    s.act(Action::Language { language: Language::Zh });
+    let zh = s.view.clone();
+    assert_eq!(zh.language, Language::Zh);
+    assert_eq!(
+        std::mem::discriminant(&zh.screen),
+        std::mem::discriminant(&english.screen),
+        "the same screen"
+    );
+    s.act(Action::Language { language: Language::En });
+    assert_eq!(
+        (&s.view.screen, &s.view.toast),
+        (&english.screen, &english.toast),
+        "English again, unchanged"
+    );
+    s.act(Action::Language { language: Language::Zh });
+    assert_eq!(s.view.screen, zh.screen, "Chinese again, unchanged");
+    zh
+}
+
+#[test]
+fn the_offline_check_and_the_start_speak_chinese() {
+    let mut s = Shell::new();
+    assert_eq!(s.view.language, Language::En, "English until the shell says otherwise");
+    assert_eq!(in_chinese(&mut s).screen, Screen::Welcome, "the welcome screen's words are the shell's");
+    // heard while the phone is online, too: the offline check is drawn again
+    s.act(Action::Language { language: Language::En });
+    s.act(Action::Radios {
+        wifi: RadioState::Active,
+        bluetooth: RadioState::On,
+        cellular: OFF,
+        network: OFF,
+    });
+    let Screen::Offline { radios, .. } = in_chinese(&mut s).screen else { panic!("{:?}", s.view.screen) };
+    assert_eq!(radios[1].name, "蓝牙");
+    assert_eq!(radios[1].detail.as_deref(), Some("关闭蓝牙。"));
+    assert!(radios[0].detail.as_deref().unwrap().contains("Wi-Fi 扫描"), "{:?}", radios[0]);
+    assert_eq!(radios[3].name, "网络连接");
+    s.act(Action::Language { language: Language::En });
+    let Screen::Offline { radios, .. } = &s.view.screen else { panic!() };
+    assert_eq!(radios[1].name, "Bluetooth");
+    // nothing but the words changed: the phone is still online, and offline it is the start
+    s.act(Action::Language { language: Language::Zh });
+    assert_eq!(
+        s.act(Action::Radios { wifi: OFF, bluetooth: OFF, cellular: OFF, network: OFF }),
+        &Screen::Welcome
+    );
+}
+
+#[test]
+fn the_phrase_and_the_passphrase_speak_chinese() {
+    let mut s = Shell::new();
+    s.act(Action::Language { language: Language::Zh });
+    s.act(Action::Begin);
+    s.act(Action::PhraseInput { text: "abandon xyzw abandon ".into() });
+    let Screen::Import { phrase } = &s.view.screen else { panic!() };
+    assert_eq!(phrase.problem.as_deref(), Some("第 2 个词不在 BIP-39 词表中。"));
+    // a refusal kept as a toast follows the language too
+    s.act(Action::PhraseDone);
+    assert!(chinese(s.view.toast.as_deref().unwrap()), "{:?}", s.view.toast);
+    s.act(Action::Language { language: Language::En });
+    assert!(s.view.toast.as_deref().unwrap().starts_with("Word 2 is not"), "{:?}", s.view.toast);
+    s.act(Action::DismissToast);
+    s.act(Action::PhraseInput { text: PHRASE.into() });
+    s.act(Action::PhraseDone);
+    s.act(Action::PassphraseInput { passphrase: "pässword".into() });
+    let Screen::Passphrase { problem: Some(p), .. } = in_chinese(&mut s).screen else { panic!() };
+    assert!(p.contains("密码短语") && p.contains("英文键盘"), "{p}");
+}
+
+#[test]
+fn a_review_speaks_chinese() {
+    let mut s = Shell::new();
+    s.open(PHRASE, "");
+    s.act(Action::Scan);
+    let Screen::Scan { title, hint, .. } = in_chinese(&mut s).screen else { panic!() };
+    assert_eq!(title, "扫描请求");
+    assert!(hint.contains("网页助手"), "{hint}");
+    s.act(Action::Language { language: Language::En });
+    assert!(s.camera, "the scan goes on in either language");
+    // an unlisted token: a warning; two transactions: a count on the button
+    s.film(
+        &evm_request().replace(
+            "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "0x1111111111111111111111111111111111111111",
+        ),
+    );
+    let Screen::Review { review: en } = s.view.screen.clone() else { panic!("{:?}", s.view.screen) };
+    assert!(en.warnings[0].contains("is not in Airkeys' token list"), "{:?}", en.warnings);
+    let Screen::Review { review: zh } = in_chinese(&mut s).screen else { panic!() };
+    assert!(zh.warnings[0].contains("不在 Airkeys 的代币列表中"), "{:?}", zh.warnings);
+    assert!(zh.notices[0].contains("EVM 账户 #0 的公钥"), "{:?}", zh.notices);
+    assert_eq!(zh.hold_label, "按住签名 2 笔交易");
+    assert_eq!(zh.transfers[1].label.as_deref(), Some("第 2 笔，共 2 笔"));
+    assert!(zh.details.iter().any(|d| d.label == "每 gas 最高费用"), "{:?}", zh.details);
+    // the request itself is untouched: what is signed does not depend on the language
+    assert_eq!(
+        (zh.fee, zh.transfers[0].to.clone(), zh.transfers[0].amount.clone()),
+        (en.fee, en.transfers[0].to.clone(), en.transfers[0].amount.clone())
+    );
+    let Screen::Code { title, caption, json, .. } = s.act(Action::Sign).clone() else { panic!() };
+    assert_eq!(title, "已签名");
+    assert!(caption.contains("全部 2 笔交易"), "{caption}");
+    s.act(Action::Language { language: Language::En });
+    let Screen::Code { title, json: en_json, .. } = s.view.screen.clone() else { panic!() };
+    assert_eq!((title.as_str(), en_json), ("Signed", json), "the same code, in either language");
+}
+
+#[test]
+fn a_refusal_speaks_chinese() {
+    let mut s = Shell::new();
+    s.open(PHRASE, "");
+    s.act(Action::Scan);
+    s.film(
+        &evm_request().replace(
+            "0xF23521DE6e2B111B384c1308b3c59Acc7Bf5e158",
+            "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8",
+        ),
+    );
+    let Screen::Refused { title, message } = in_chinese(&mut s).screen else { panic!("{:?}", s.view.screen) };
+    assert_eq!(title, "Airkeys 拒绝签名");
+    assert!(message.contains("另一个钱包") && message.contains("助记词和密码短语"), "{message}");
+    s.act(Action::Language { language: Language::En });
+    let Screen::Refused { title, message } = &s.view.screen else { panic!() };
+    assert_eq!(title, "Airkeys will not sign this");
+    assert!(message.contains("another wallet"));
+    // a message the phone sent itself
+    s.act(Action::Language { language: Language::Zh });
+    s.act(Action::Done);
+    s.act(Action::Scan);
+    s.film(r#"{"airkeys":1,"type":"accounts","accounts":[{"network":"evm","index":0,"address":"0x00"}]}"#);
+    let Screen::Refused { title, message } = &s.view.screen else { panic!() };
+    assert_eq!(title, "这不是请求");
+    assert!(message.contains("“accounts”"), "{message}");
+}
+
+/// What a hostile or broken web app can send, and what a person can type or scan: every
+/// refusal comes with its Chinese sentence.
+#[test]
+fn every_wallet_refusal_has_a_chinese_sentence() {
+    let w = wallet(PHRASE, "");
+    let btc0 = w.address(Network::Bitcoin, 0).unwrap();
+    let evm0 = w.address(Network::Evm, 0).unwrap();
+    let (mut errors, mut taken) = (Vec::new(), Vec::new());
+    let mut refuse = |json: String| match Message::parse(json.as_bytes()) {
+        Err(e) => errors.push(e),
+        Ok(Message::Sign(r)) => match airkeys_wallet::review(&r, &w) {
+            Err(e) => errors.push(e),
+            Ok(_) => taken.push(json),
+        },
+        Ok(_) => taken.push(json),
+    };
+
+    // the message
+    for json in [
+        "not json".to_string(),
+        r#"{"airkeys":2,"type":"sign"}"#.into(),
+        r#"{"airkeys":1}"#.into(),
+        r#"{"airkeys":1,"type":"hello"}"#.into(),
+        r#"{"airkeys":1,"type":"accounts","accounts":[]}"#.into(),
+        r#"{"airkeys":1,"type":"accounts","accounts":[{"network":"evm","index":0,"address":"0x0"}],"x":1}"#
+            .into(),
+        r#"{"airkeys":1,"type":"sign","id":"no spaces allowed","network":"evm"}"#.into(),
+        r#"{"airkeys":1,"type":"sign","id":"x","network":"solana"}"#.into(),
+        r#"{"airkeys":1,"type":"sign","id":"x","network":"evm","from":{"index":0,"address":"0x0"}}"#.into(),
+        format!(r#"{{"airkeys":1,"type":"accounts","pad":"{}"}}"#, "x".repeat(1 << 20)),
+    ] {
+        refuse(json);
+    }
+
+    // EVM requests: one transaction, one field changed
+    let evm = |tx: &str, chain: u64, from: &str| {
+        format!(
+            r#"{{"airkeys":1,"type":"sign","id":"x","network":"evm","chainId":{chain},"from":{{"index":0,"address":"{from}"}},"txs":[{tx}]}}"#
+        )
+    };
+    let tx = |fields: &str| {
+        let base = r#""to":{"address":"0x000000000000000000000000000000000000dEaD"},"amount":"1","nonce":0,"gas":21000,"maxFeePerGas":"2000000000","maxPriorityFeePerGas":"1000000""#;
+        let mut v: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&format!("{{{base}}}")).unwrap();
+        let change: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(&format!("{{{fields}}}")).unwrap();
+        for (k, x) in change {
+            if x.is_null() {
+                v.remove(&k);
+            } else {
+                v.insert(k, x);
+            }
+        }
+        serde_json::Value::Object(v).to_string()
+    };
+    let foreign = "0xEA373B5359e70C7fE76d048fdfe435f6b910Ccd8";
+    for (fields, from) in [
+        ("", foreign),
+        (r#""amount":"0""#, &*evm0),
+        (r#""to":{}"#, &evm0),
+        (r#""to":{"index":0}"#, &evm0),
+        (&format!(r#""to":{{"address":"{}"}}"#, evm0.to_lowercase()), &evm0),
+        (r#""to":{"index":2147483648}"#, &evm0),
+        (r#""to":{"index":1,"address":"0x000000000000000000000000000000000000dEaD"}"#, &evm0),
+        (r#""to":{"address":"0x12"}"#, &evm0),
+        (r#""to":{"address":"0x000000000000000000000000000000000000DeAd"}"#, &evm0),
+        (r#""gas":20999"#, &evm0),
+        (r#""maxPriorityFeePerGas":"3000000000""#, &evm0),
+        (r#""maxPriorityFeePerGas":null"#, &evm0),
+        (
+            r#""maxFeePerGas":null,"maxPriorityFeePerGas":null,"gasPrice":"340282366920938463463374607431768211456""#,
+            &evm0,
+        ),
+        (r#""maxFeePerGas":"340282366920938463463374607431768211456""#, &evm0),
+        (r#""amount":"340282366920938463463374607431768211456""#, &evm0),
+        (
+            r#""maxFeePerGas":"340282366920938463463374607431768211455","maxPriorityFeePerGas":"1","gas":21000"#,
+            &evm0,
+        ),
+        (r#""amount":"01""#, &evm0),
+        (r#""amount":"1e18""#, &evm0),
+        (&format!(r#""amount":"{}""#, "9".repeat(80)), &evm0),
+        (
+            r#""token":{"address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","symbol":"USD C","decimals":6}"#,
+            &evm0,
+        ),
+        (
+            r#""token":{"address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","symbol":"USDC","decimals":37}"#,
+            &evm0,
+        ),
+        (
+            r#""token":{"address":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","symbol":"USDT","decimals":6}"#,
+            &evm0,
+        ),
+        (r#""token":{"address":"0x12","symbol":"USDC","decimals":6}"#, &evm0),
+    ] {
+        refuse(evm(&tx(fields), 8453, from));
+    }
+    let from = &evm0;
+    refuse(evm(&format!("{},{}", tx(""), tx(r#""nonce":2"#)), 8453, from));
+    refuse(evm(&vec![tx(""); 17].join(","), 8453, from));
+    refuse(evm(
+        &format!(
+            "{},{}",
+            tx(
+                r#""maxFeePerGas":"340282366920938463463374607431768211455","maxPriorityFeePerGas":"1","gas":1"#
+            ),
+            tx(r#""nonce":1"#)
+        ),
+        1,
+        from,
+    ));
+    refuse(format!(
+        r#"{{"airkeys":1,"type":"sign","id":"x","network":"evm","chainId":1,"from":{{"index":2147483648,"address":"{from}"}},"txs":[{}]}}"#,
+        tx("")
+    ));
+
+    // Bitcoin requests: one coin of account #0, its outputs changed
+    let script = bitcoin::parse_address(&btc0).unwrap().script;
+    let prev = |value: u64, script: &[u8]| {
+        let mut t = vec![2, 0, 0, 0, 1];
+        t.extend_from_slice(&[7; 32]);
+        t.extend_from_slice(&[0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 1]);
+        t.extend_from_slice(&value.to_le_bytes());
+        t.push(script.len() as u8);
+        t.extend_from_slice(script);
+        t.extend_from_slice(&[0; 4]);
+        let id = bitcoin::txid_hex(&bitcoin::parse_tx(&t).unwrap().txid);
+        (t.iter().map(|b| format!("{b:02x}")).collect::<String>(), id)
+    };
+    let (raw, txid) = prev(100_000, &script);
+    let btc = |inputs: String, outputs: &str| {
+        format!(
+            r#"{{"airkeys":1,"type":"sign","id":"x","network":"bitcoin","from":{{"index":0,"address":"{btc0}"}},"inputs":[{inputs}],"outputs":[{outputs}]}}"#
+        )
+    };
+    let input = |txid: &str, vout: u32, amount: u64, raw: &str| {
+        format!(r#"{{"txid":"{txid}","vout":{vout},"amount":"{amount}","prevTx":"{raw}"}}"#)
+    };
+    let one = input(&txid, 0, 100_000, &raw);
+    let pay =
+        |address: &str, amount: u64| format!(r#"{{"to":{{"address":"{address}"}},"amount":"{amount}"}}"#);
+    let foreign_btc = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
+    let (other_raw, other_txid) = prev(100_000, &bitcoin::parse_address(foreign_btc).unwrap().script);
+    for (inputs, outputs) in [
+        (String::new(), pay(foreign_btc, 1000)),
+        (one.clone(), String::new()),
+        (input("zz", 0, 100_000, &raw), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 100_000, "zz"), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 100_000, "0200"), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 100_000, &format!("{raw}00")), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 100_000, "0200000000"), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 100_000, "02000000ff"), pay(foreign_btc, 1000)),
+        (input(&"ab".repeat(32), 0, 100_000, &raw), pay(foreign_btc, 1000)),
+        (input(&txid, 1, 100_000, &raw), pay(foreign_btc, 1000)),
+        (input(&txid, 0, 99_999, &raw), pay(foreign_btc, 1000)),
+        (input(&other_txid, 0, 100_000, &other_raw), pay(foreign_btc, 1000)),
+        (format!("{one},{one}"), pay(foreign_btc, 1000)),
+        (one.clone(), pay(foreign_btc, 100)),
+        (one.clone(), pay(foreign_btc, 100_000)),
+        (one.clone(), pay(&btc0, 1000)),
+        (one.clone(), pay("bc1qnotanaddress", 1000)),
+        (one.clone(), pay("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", 1000)),
+        (one.clone(), pay("bc1zw508d6qejxtdg4y5r3zarvaryvaxxpcs", 1000)),
+        (one.clone(), pay("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3", 1000)),
+        (one.clone(), pay("bc1\u{202e}q", 1000)),
+        (one.clone(), pay(foreign_btc, u64::MAX).replace(&u64::MAX.to_string(), "18446744073709551616")),
+        (one.clone(), format!("{},{}", pay(foreign_btc, u64::MAX), pay(foreign_btc, u64::MAX))),
+    ] {
+        refuse(btc(inputs, &outputs));
+    }
+
+    assert!(taken.is_empty(), "not refused: {taken:#?}");
+
+    // what a person types or scans
+    let mut more: Vec<airkeys_wallet::Error> = vec![
+        Mnemonic::parse("abandon abandon xyzw").unwrap_err(),
+        Mnemonic::parse("abandon abandon abandon").unwrap_err(),
+        Mnemonic::parse(&"abandon ".repeat(12)).unwrap_err(),
+        Mnemonic::from_qr(b"https://example.com").unwrap_err(),
+        Mnemonic::from_qr(format!("{}2048", "0000".repeat(11)).as_bytes()).unwrap_err(),
+        Mnemonic::from_entropy(&[0; 15]).unwrap_err(),
+        airkeys_wallet::keys::check_passphrase(&"x".repeat(257)).unwrap_err(),
+        airkeys_wallet::keys::check_passphrase("pässword").unwrap_err(),
+        w.address(Network::Evm, airkeys_wallet::MAX_INDEX + 1).unwrap_err(),
+        evm::parse_address("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD").unwrap_err(),
+        airkeys_wallet::amount::Amount::parse("-1").unwrap_err(),
+    ];
+    errors.append(&mut more);
+
+    for e in &errors {
+        assert!(!e.en.is_empty() && !chinese(&e.en), "{e:?}");
+        assert!(chinese(&e.zh), "no Chinese for: {}", e.en);
+        assert_ne!(e.zh, e.en);
+        eprintln!("{}\n  {}", e.en, e.zh);
+    }
+    assert!(errors.len() >= 70, "{} refusals", errors.len());
 }

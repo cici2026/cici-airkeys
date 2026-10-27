@@ -23,23 +23,32 @@ struct RootView: View {
         case let .import(phrase):
             ImportScreen(p: phrase, act: act, rewrite: shell.phraseInput)
         case let .passphrase(passphrase, problem):
-            Page(title: "Passphrase", onBack: { act(.back) }) {
-                Text("Passphrase").font(.akTitle).foregroundStyle(Ink.text)
-                Text("Only if your wallet has one — most do not. Leave it empty otherwise.").font(.akDim).foregroundStyle(Ink.dim)
-                Field(placeholder: "No passphrase", text: Binding(get: { passphrase }, set: { act(.passphraseInput(passphrase: $0)) }), secret: true, error: problem != nil)
+            Page(title: tr("Passphrase", "密码短语"), onBack: { act(.back) }) {
+                Text(tr("Passphrase", "密码短语")).font(.akTitle).foregroundStyle(Ink.text)
+                Text(tr("Leave this empty unless your wallet has one.", "如果钱包没有密码短语，这里留空。")).font(.akDim).foregroundStyle(Ink.dim)
+                Field(placeholder: tr("No passphrase", "无密码短语"), text: Binding(get: { passphrase }, set: { act(.passphraseInput(passphrase: $0)) }), secret: true, error: problem != nil)
                 if let problem { Text(problem).font(.akSmall).foregroundStyle(Ink.danger) }
-                Notice(text: "A passphrase opens a different wallet from the same words, and any passphrase opens one. Airkeys cannot tell a mistyped passphrase: check the addresses it shows.", color: Ink.dim, symbol: "lock")
+                Notice(
+                    text: tr(
+                        "Each passphrase opens a different wallet from the same words, so a mistyped one opens the wrong wallet without an error. Check the addresses.",
+                        "同一组助记词配不同的密码短语，打开的是不同的钱包。输错了不会报错，只会打开另一个钱包。请核对地址。"
+                    ),
+                    color: Ink.dim, symbol: "lock"
+                )
             } actions: {
-                AkButton(title: "Open wallet", enabled: problem == nil) { act(.open) }
+                AkButton(title: tr("Open wallet", "打开钱包"), enabled: problem == nil) { act(.open) }
             }
         case let .home(index, accounts):
             Home(index: index, accounts: accounts, act: act)
         case let .account(account):
             AccountScreen(a: account, act: act)
         case let .connect(_, choices, scopes):
-            Page(title: "Connect", onBack: { act(.back) }) {
-                Text("Show your accounts to the web app").font(.akTitle).foregroundStyle(Ink.text)
-                Text("The web app reads balances and prepares transfers. It gets addresses only — never a public key.").font(.akDim).foregroundStyle(Ink.dim)
+            Page(title: tr("Connect", "连接"), onBack: { act(.back) }) {
+                Text(tr("Show your accounts to the web app", "向网页助手显示你的账户")).font(.akTitle).foregroundStyle(Ink.text)
+                Text(tr(
+                    "The web app gets addresses only, no public keys. It reads balances and prepares transfers.",
+                    "网页助手只得到地址，没有公钥。它查询余额，准备转账。"
+                )).font(.akDim).foregroundStyle(Ink.dim)
                 Card(padding: 6) {
                     ForEach(scopes, id: \.all) { c in
                         Button { act(.connectScope(all: c.all)) } label: {
@@ -73,7 +82,7 @@ struct RootView: View {
                     }
                 }
             } actions: {
-                AkButton(title: "Show code", symbol: "qrcode", enabled: choices.contains { $0.selected }) { act(.showAccounts) }
+                AkButton(title: tr("Show code", "显示动态码"), symbol: "qrcode", enabled: choices.contains { $0.selected }) { act(.showAccounts) }
             }
         case let .code(title, caption, _, message):
             CodeScreen(title: title, caption: caption, message: message, next: shell.codeFrame, act: act)
@@ -90,13 +99,13 @@ struct RootView: View {
                 if let problem {
                     Notice(text: problem, color: Ink.danger)
                 } else if let p = progress, p.needed > 0 {
-                    Text("Receiving…").font(.akHeading).foregroundStyle(Ink.text)
+                    Text(tr("Receiving…", "正在接收…")).font(.akHeading).foregroundStyle(Ink.text)
                     ProgressView(value: min(1, Double(p.received) / Double(p.needed))).tint(Ink.lamp)
                 } else {
                     Text(hint).font(.akDim).foregroundStyle(Ink.dim)
                 }
             } actions: {
-                if problem != nil { AkButton(title: "Try again", symbol: "viewfinder") { act(.scan) } }
+                if problem != nil { AkButton(title: tr("Try again", "重试"), symbol: "viewfinder") { act(.scan) } }
             }
         case let .review(review):
             ReviewScreen(r: review, act: act)
@@ -110,7 +119,7 @@ struct RootView: View {
                 .padding(.top, 24)
                 Card { Text(message).font(.akBody).foregroundStyle(Ink.text) }
             } actions: {
-                AkButton(title: "Back", kind: .secondary) { act(.done) }
+                AkButton(title: tr("Back", "返回"), kind: .secondary) { act(.done) }
             }
         }
     }
@@ -125,8 +134,11 @@ private struct OfflineScreen: View {
             Spacer().frame(height: 24)
             Image(systemName: "airplane").font(.system(size: 28, weight: .semibold)).foregroundStyle(Ink.warn)
                 .frame(width: 64, height: 64).background(RoundedRectangle(cornerRadius: 20).fill(Ink.warn.opacity(0.14)))
-            Text("Take this phone offline").font(.akTitle).foregroundStyle(Ink.text)
-            Text("Airkeys works only on a phone with every radio off. Turn on Airplane mode, then make sure Wi-Fi and Bluetooth stay off in Settings.")
+            Text(tr("Take this phone offline", "让这部手机断网")).font(.akTitle).foregroundStyle(Ink.text)
+            Text(tr(
+                "Airkeys works only with every radio off. Turn on Airplane mode, then check that Wi-Fi and Bluetooth are off too.",
+                "Airkeys 只在所有无线都关闭时工作。请打开飞行模式，再确认 Wi-Fi 和蓝牙也已关闭。"
+            ))
                 .font(.akDim).foregroundStyle(Ink.dim)
             Card(padding: 6) {
                 ForEach(radios, id: \.name) { r in
@@ -135,10 +147,10 @@ private struct OfflineScreen: View {
                             Text(r.name).font(.akBody).foregroundStyle(Ink.text)
                             Spacer()
                             switch r.state {
-                            case .off: Pill(text: "Off", color: Ink.safe, symbol: "checkmark")
-                            case .on: Pill(text: "On", color: Ink.warn, symbol: "exclamationmark.triangle")
-                            case .active: Pill(text: "Still active", color: Ink.warn, symbol: "exclamationmark.triangle")
-                            case .unknown: Pill(text: "Unknown", color: Ink.dim)
+                            case .off: Pill(text: tr("Off", "已关闭"), color: Ink.safe, symbol: "checkmark")
+                            case .on: Pill(text: tr("On", "已打开"), color: Ink.warn, symbol: "exclamationmark.triangle")
+                            case .active: Pill(text: tr("Still active", "仍在工作"), color: Ink.warn, symbol: "exclamationmark.triangle")
+                            case .unknown: Pill(text: tr("Unknown", "未知"), color: Ink.dim)
                             }
                         }
                         if let detail = r.detail { Text(detail).font(.akSmall).foregroundStyle(Ink.dim) }
@@ -148,10 +160,16 @@ private struct OfflineScreen: View {
                 }
             }
             if radios.contains(where: { $0.kind == .bluetooth && $0.state == .unknown }) {
-                Notice(text: "To check Bluetooth, Airkeys needs the Bluetooth permission (Settings › Airkeys). It never uses Bluetooth.", color: Ink.dim, symbol: "info.circle")
+                Notice(
+                    text: tr(
+                        "To check that Bluetooth is off, Airkeys needs the Bluetooth permission (Settings › Airkeys). It never uses Bluetooth.",
+                        "要确认蓝牙已关闭，Airkeys 需要蓝牙权限（设置 › Airkeys）。它从不使用蓝牙。"
+                    ),
+                    color: Ink.dim, symbol: "info.circle"
+                )
             }
             if walletOpen {
-                Notice(text: "Your wallet is still open. Airkeys carries on as soon as the phone is offline again.", color: Ink.dim, symbol: "lock")
+                Notice(text: tr("Your wallet is still open. Airkeys continues once the phone is offline.", "钱包仍然打开着。手机断网后，Airkeys 会继续。"), color: Ink.dim, symbol: "lock")
             }
         } actions: {
             EmptyView()
@@ -168,16 +186,25 @@ private struct Welcome: View {
             Spacer().frame(height: 24)
             Mark(size: 76)
             Text("Airkeys").font(.system(size: 38, weight: .semibold)).foregroundStyle(Ink.text)
-            Text("A cold wallet for a phone that stays offline. It shows the world addresses — never a public key — so the funds behind them stay out of reach, even of a quantum computer.")
+            Text(tr("A cold wallet for a phone that stays offline.", "装在离线手机上的冷钱包。"))
                 .font(.system(size: 16)).foregroundStyle(Ink.dim).lineSpacing(3)
             Spacer().frame(height: 8)
-            Feature(symbol: "lock", title: "Nothing is stored", text: "Bring your recovery phrase each time. It stays in memory until you close the wallet or the app.")
-            Feature(symbol: "checkmark.shield", title: "Addresses only", text: "Connecting to the web app shares addresses, never the keys behind them.")
-            Feature(symbol: "eye", title: "Clear signing", text: "Airkeys signs transfers only, after showing every recipient, amount and fee.")
+            Feature(symbol: "lock", title: tr("Nothing is stored", "不存储"), text: tr(
+                "Bring your recovery phrase each time. It stays in memory until you close the wallet or the app.",
+                "每次使用时输入助记词。它只在内存中，直到你关闭钱包或 App。"
+            ))
+            Feature(symbol: "checkmark.shield", title: tr("Addresses only", "只给地址"), text: tr(
+                "The web app gets addresses, never public keys. Until an account sends, its key stays unknown.",
+                "网页助手只得到地址，从不得到公钥。账户转出之前，它的公钥无人知晓。"
+            ))
+            Feature(symbol: "eye", title: tr("Clear signing", "明文签名"), text: tr(
+                "Airkeys signs transfers only, after showing every recipient, amount and fee.",
+                "Airkeys 只签转账，并先显示每个收款方、金额和手续费。"
+            ))
             Text(version).font(.akSmall).foregroundStyle(Ink.faint)
         } actions: {
-            AkButton(title: "Enter recovery phrase") { act(.begin) }
-            AkButton(title: "Scan SeedQR", kind: .secondary, symbol: "viewfinder") { act(.scan) }
+            AkButton(title: tr("Enter recovery phrase", "输入助记词")) { act(.begin) }
+            AkButton(title: tr("Scan SeedQR", "扫描 SeedQR"), kind: .secondary, symbol: "viewfinder") { act(.scan) }
         }
     }
 }
@@ -214,11 +241,11 @@ private struct ImportScreen: View {
     }
 
     var body: some View {
-        Page(title: "Recovery phrase", onBack: { act(.back) }, trailing: {
-            IconAction(symbol: "viewfinder", label: "Scan SeedQR", tint: Ink.dim) { act(.scan) }
+        Page(title: tr("Recovery phrase", "助记词"), onBack: { act(.back) }, trailing: {
+            IconAction(symbol: "viewfinder", label: tr("Scan SeedQR", "扫描 SeedQR"), tint: Ink.dim) { act(.scan) }
         }, content: {
-            Text("Enter your recovery phrase").font(.akTitle).foregroundStyle(Ink.text)
-            Text("Type the first letters of each word and a space: Airkeys completes it.").font(.akDim).foregroundStyle(Ink.dim)
+            Text(tr("Enter your recovery phrase", "输入你的助记词")).font(.akTitle).foregroundStyle(Ink.text)
+            Text(tr("Type the first letters of each word and a space: Airkeys completes it.", "每个词输入前几个字母和一个空格，Airkeys 会补全。")).font(.akDim).foregroundStyle(Ink.dim)
             PhraseEditor(text: p.text, placeholder: "abandon ability …", rewrite: rewrite, select: select)
                 .overlay(alignment: .topLeading) {
                     if p.text.isEmpty { Text("abandon ability …").font(.system(size: 17, design: .monospaced)).foregroundStyle(Ink.faint).allowsHitTesting(false) }
@@ -230,9 +257,9 @@ private struct ImportScreen: View {
             if let problem = p.problem { Text(problem).font(.akSmall).foregroundStyle(Ink.danger) }
             if !p.words.isEmpty {
                 HStack {
-                    Label2(text: "\(p.words.count) words")
+                    Label2(text: tr("\(p.words.count) words", "\(p.words.count) 个词"))
                     Spacer()
-                    if p.valid { Pill(text: "Valid phrase", color: Ink.safe, symbol: "checkmark") }
+                    if p.valid { Pill(text: tr("Valid phrase", "助记词有效"), color: Ink.safe, symbol: "checkmark") }
                 }
                 // as on a recovery card: even columns, numbers aligned
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), alignment: .leading, spacing: 8) {
@@ -253,7 +280,7 @@ private struct ImportScreen: View {
                 }
             }
         }, actions: {
-            AkButton(title: "Continue", enabled: p.canContinue) { act(.phraseDone) }
+            AkButton(title: tr("Continue", "继续"), enabled: p.canContinue) { act(.phraseDone) }
         })
     }
 }
@@ -266,7 +293,7 @@ private struct Home: View {
     var body: some View {
         Page(trailing: {
             Button { act(.close) } label: {
-                Label("Close wallet", systemImage: "lock").font(.akSmall).foregroundStyle(Ink.dim).padding(.horizontal, 12).padding(.vertical, 8)
+                Label(tr("Close wallet", "关闭钱包"), systemImage: "lock").font(.akSmall).foregroundStyle(Ink.dim).padding(.horizontal, 12).padding(.vertical, 8)
             }
         }, content: {
             AccountWheel(index: index) { act(.account(index: $0)) }
@@ -287,8 +314,8 @@ private struct Home: View {
             }
         }, actions: {
             HStack(spacing: 10) {
-                AkButton(title: "Connect", kind: .secondary, symbol: "qrcode") { act(.connect) }.frame(maxWidth: .infinity)
-                AkButton(title: "Scan request", symbol: "viewfinder") { act(.scan) }.frame(maxWidth: .infinity)
+                AkButton(title: tr("Connect", "连接"), kind: .secondary, symbol: "qrcode") { act(.connect) }.frame(maxWidth: .infinity)
+                AkButton(title: tr("Scan request", "扫描请求"), symbol: "viewfinder") { act(.scan) }.frame(maxWidth: .infinity)
             }
         })
     }
@@ -304,7 +331,7 @@ private struct AccountWheel: View {
         GeometryReader { g in
             let half = g.size.width / 2
             ZStack(alignment: .leading) {
-                Picker("Account", selection: Binding(get: { index }, set: choose)) {
+                Picker(tr("Account", "账户"), selection: Binding(get: { index }, set: choose)) {
                     ForEach(0..<accountCount(), id: \.self) { i in
                         Text("\(i)").font(.system(size: 24).monospacedDigit()).foregroundStyle(Ink.text)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, half + 5).tag(i)
@@ -313,7 +340,7 @@ private struct AccountWheel: View {
                 .pickerStyle(.wheel)
                 .labelsHidden()
                 .accessibilityIdentifier("account-wheel")
-                Text("Account").font(.system(size: 17, weight: .medium)).foregroundStyle(Ink.text)
+                Text(tr("Account", "账户")).font(.system(size: 17, weight: .medium)).foregroundStyle(Ink.text)
                     .frame(width: half - 5, alignment: .trailing).allowsHitTesting(false)
             }
         }
@@ -330,23 +357,29 @@ private struct AccountScreen: View {
             HStack(spacing: 14) {
                 NetworkBadge(kind: a.network, size: 52)
                 VStack(alignment: .leading) {
-                    Text("Account #\(a.index)").font(.akHeading).foregroundStyle(Ink.text)
+                    Text(tr("Account #\(a.index)", "账户 #\(a.index)")).font(.akHeading).foregroundStyle(Ink.text)
                     Text(a.assets).font(.akSmall).foregroundStyle(Ink.dim)
                 }
                 Spacer()
             }
             Card {
-                Label2(text: "Address")
+                Label2(text: tr("Address", "地址"))
                 Address(address: a.address, size: 19)
             }
             Card {
-                Label2(text: "Derivation path")
+                Label2(text: tr("Derivation path", "派生路径"))
                 Text(a.path).font(.akMono).foregroundStyle(Ink.text)
-                Text("Every step is hardened.").font(.akSmall).foregroundStyle(Ink.dim)
+                Text(tr("Every step is hardened.", "每一级都是硬化派生。")).font(.akSmall).foregroundStyle(Ink.dim)
             }
-            Notice(text: "The public key behind this address stays on this phone until the account first sends. Receiving reveals nothing.", color: Ink.safe, symbol: "checkmark.shield")
+            Notice(
+                text: tr(
+                    "Its public key stays on this phone until the account first sends. Receiving does not reveal it.",
+                    "账户第一次转出之前，它的公钥只在这部手机上。收款不会暴露公钥。"
+                ),
+                color: Ink.safe, symbol: "checkmark.shield"
+            )
         } actions: {
-            AkButton(title: "Show to the web app", symbol: "qrcode") { act(.shareAccount(network: a.network)) }
+            AkButton(title: tr("Show to the web app", "显示给网页助手"), symbol: "qrcode") { act(.shareAccount(network: a.network)) }
         }
     }
 }
@@ -362,13 +395,13 @@ private struct CodeScreen: View {
 
     var body: some View {
         Page(title: title, onBack: { act(.back) }, scroll: false) {
-            Button(reading ? "Code" : "Message") { reading.toggle() }
+            Button(reading ? tr("Code", "动态码") : tr("Message", "消息")) { reading.toggle() }
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Ink.lamp)
                 .padding(.horizontal, 12)
         } content: {
             if reading {
-                Text("What the code says").font(.akHeading).foregroundStyle(Ink.text)
+                Text(tr("What the code says", "动态码的内容")).font(.akHeading).foregroundStyle(Ink.text)
                 // a line at a time, drawn as it scrolls into view: all 100 accounts are about a
                 // thousand lines, too many to lay out at once
                 ScrollView {
@@ -390,7 +423,7 @@ private struct CodeScreen: View {
                 Text(caption).font(.akDim).foregroundStyle(Ink.dim).lineLimit(2)
             }
         } actions: {
-            AkButton(title: "Done") { act(.done) }
+            AkButton(title: tr("Done", "完成")) { act(.done) }
         }
     }
 }

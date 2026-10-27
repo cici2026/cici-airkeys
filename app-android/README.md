@@ -1,8 +1,8 @@
 # Airkeys for Android
 
-A Jetpack Compose shell around the Rust core (`core/app`). It draws the core's view model,
-sends it the person's actions, camera frames and radio states, and performs what it asks:
-camera on/off, keep the screen on, block screenshots (`FLAG_SECURE`), haptics.
+A Jetpack Compose shell around the Rust core (`core/app`): it draws the core's view model,
+sends it the person's actions, camera frames and radio states, and does what it asks (camera
+on/off, keep the screen on, block screenshots with `FLAG_SECURE`, haptics).
 
 ```
 Airkeys/app/src/main/java/app/airkeys/
@@ -14,10 +14,10 @@ Airkeys/app/src/main/java/app/airkeys/
                     Wheel.kt (the account wheel), Icons.kt, Theme.kt
 ```
 
-No `INTERNET` permission. Permissions: `CAMERA`; `ACCESS_WIFI_STATE` and
-`ACCESS_NETWORK_STATE` to see that Wi-Fi and every network are off; `BLUETOOTH` up to
-Android 11, where reading the adapter needs it. All are granted at install except the camera.
-Nothing is backed up or transferred to a new phone. Minimum Android 8 (API 26).
+The app has no `INTERNET` permission. It uses `CAMERA`; `ACCESS_WIFI_STATE` and
+`ACCESS_NETWORK_STATE`, to see that Wi-Fi and every network are off; and `BLUETOOTH` up to
+Android 11, to read the adapter. All but the camera are granted at install. Nothing is backed
+up or transferred to a new phone. Minimum Android 8 (API 26).
 
 ## Build
 
@@ -38,13 +38,14 @@ libraries go to `app/build/rust/jniLibs` and its Kotlin bindings to `app/build/g
 Release builds are signed with your key when `airkeysKeystore`, `airkeysKeystorePassword`,
 `airkeysKeyAlias` and `airkeysKeyPassword` are set in `~/.gradle/gradle.properties` (or as
 `AIRKEYS_KEYSTORE`, `AIRKEYS_KEYSTORE_PASSWORD`, `AIRKEYS_KEY_ALIAS`, `AIRKEYS_KEY_PASSWORD`);
-without them the APK is unsigned. R8 is off on purpose: the bytecode stays as written, easier to
-audit.
+without them the APK is unsigned. R8 is off so the bytecode stays as written, which is easier
+to audit.
 
 ## Testing
 
-**Debug builds are for testing only**: they accept injected messages and allow screenshots of
-the phrase. Never open a wallet that holds funds in one.
+**Debug builds are for testing only**: they accept injected messages and, unlike release
+builds, allow screenshots of the phrase and passphrase. Never open a wallet that holds funds in
+one.
 
 A debug build takes a message as if scanned, so flows run without a camera:
 
@@ -53,7 +54,7 @@ A debug build takes a message as if scanned, so flows run without a camera:
 adb shell am start -n app.airkeys/.MainActivity --es airkeys.deliver "$(base64 < request.json | tr -d '\n')"
 ```
 
-The app shows nothing but its offline screen until every radio is off. On an emulator:
+Until every radio is off, the app shows only its offline screen. On an emulator:
 
 ```sh
 adb shell cmd connectivity airplane-mode enable
@@ -61,5 +62,3 @@ adb shell svc wifi disable
 adb shell cmd bluetooth_manager disable
 adb shell settings put global wifi_scan_always_enabled 0   # Wi-Fi scanning keeps the radio active
 ```
-
-Release builds block screenshots while the phrase or passphrase is on screen.

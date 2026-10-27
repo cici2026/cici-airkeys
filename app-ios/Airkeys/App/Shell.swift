@@ -27,7 +27,7 @@ final class Shell {
     }
     @ObservationIgnored lazy var camera = Camera(
         onFrame: { [weak self] frame in self?.frame(frame) },
-        onError: { [weak self] message in DispatchQueue.main.async { self?.dispatch(.cameraFailed(message: message)) } }
+        onError: { [weak self] problem in DispatchQueue.main.async { self?.cameraFailed(problem) } }
     )
     /// Debug builds: `AIRKEYS_DELIVER=<base64 message>` hands the scan screen a message as if
     /// the camera had read it (the simulator has no camera). Same review, same confirmation.
@@ -35,6 +35,15 @@ final class Shell {
 
     init() {
         view = core.view()
+        // before the first screen is drawn: no English flash for a Chinese phone
+        followSystemLanguage()
+    }
+
+    /// The system's language, or the app's own (Settings › Airkeys › Language): at start and
+    /// whenever it changes. The core draws the screen again in it; the shell's words follow.
+    func followSystemLanguage() {
+        let language = Language.system
+        if language != view.language { dispatch(.language(language: language)) }
     }
 
     func start() {
@@ -65,7 +74,10 @@ final class Shell {
     }
 
     private func apply(_ update: Update) {
-        if update.view.rev >= view.rev { view = update.view }
+        if update.view.rev >= view.rev {
+            view = update.view
+            ShellLanguage.shared.current = view.language
+        }
         for r in update.requests { perform(r) }
         #if DEBUG
         if case .scan = view.screen, let message = pendingDelivery {
@@ -73,6 +85,18 @@ final class Shell {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.apply(self.core.deliver(message: message)) }
         }
         #endif
+    }
+
+    /// The camera could not be used: the core shows it on the scan screen, in its language.
+    private func cameraFailed(_ problem: CameraProblem) {
+        let message = switch problem {
+        case .denied: tr(
+                "Airkeys needs the camera to read the web app's codes and SeedQRs. Allow it in Settings › Airkeys, then try again.",
+                "Airkeys 需要摄像头来读取网页助手的动态码和 SeedQR。请在“设置 › Airkeys”中允许，然后重试。"
+            )
+        case .missing: tr("This device has no camera Airkeys can use.", "这台设备没有 Airkeys 能用的摄像头。")
+        }
+        dispatch(.cameraFailed(message: message))
     }
 
     /// The app came to the front or left it: the screen's own brightness while away.

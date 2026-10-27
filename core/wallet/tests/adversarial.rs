@@ -71,7 +71,7 @@ fn eth(to: Value, amount: &str, nonce: u64, max_fee: &str) -> Value {
 fn refusal(r: &SignRequest) -> String {
     match review(r, &wallet()) {
         Ok(_) => panic!("signed a request it must refuse"),
-        Err(e) => e.0,
+        Err(e) => e.en,
     }
 }
 
@@ -151,7 +151,7 @@ fn a_fee_above_the_payment_is_flagged_even_with_change() {
         json!([{"to":{"address":FOREIGN_BTC},"amount":"100000"},{"to":{"index":1},"amount":"99760000"}]),
     );
     let warnings = review(&r, &wallet()).unwrap().warnings;
-    assert!(warnings.iter().any(|w| w.contains("fee is high")), "{warnings:?}");
+    assert!(warnings.iter().any(|w| w.en.contains("fee is high")), "{warnings:?}");
 }
 
 #[test]
@@ -163,14 +163,14 @@ fn an_evm_fee_is_weighed_against_what_is_paid_not_moved() {
         eth(json!({"index":1}), "9000000000000000000", 1, "1000000000"),
     ]));
     let warnings = review(&r, &wallet()).unwrap().warnings;
-    assert!(warnings.iter().any(|w| w.contains("fee is high")), "{warnings:?}");
+    assert!(warnings.iter().any(|w| w.en.contains("fee is high")), "{warnings:?}");
     // a token payment pays no native coin: an absurd price per gas is flagged all the same
     let usdc = json!({"address":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","symbol":"USDC","decimals":6});
     let r = evm(json!([{"to":{"address":FOREIGN_EVM},"amount":"5000000","token":usdc,"nonce":0,"gas":65000,
         "maxFeePerGas":"15384615384615","maxPriorityFeePerGas":"1000000000"}]));
     let warnings = review(&r, &wallet()).unwrap().warnings;
     assert!(
-        warnings.iter().any(|w| w.contains("fee is high")),
+        warnings.iter().any(|w| w.en.contains("fee is high")),
         "a 1 ETH fee on a token transfer: {warnings:?}"
     );
 }

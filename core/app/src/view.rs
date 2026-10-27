@@ -11,6 +11,35 @@ pub struct ViewModel {
     pub toast: Option<String>,
     /// "Airkeys 0.1.0 · protocol v1"
     pub version: String,
+    /// The language every string above is in (`Action::Language` sets it), for the words a
+    /// shell draws itself.
+    pub language: Language,
+}
+
+/// The languages the phone speaks. The shell reports the system's at start and whenever it
+/// changes (`Action::Language`); English until then.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, uniffi::Enum)]
+pub enum Language {
+    /// English.
+    #[default]
+    En,
+    /// Simplified Chinese.
+    Zh,
+}
+
+impl Language {
+    /// The one of an English and a Chinese string that this language reads.
+    pub fn pick<'a>(self, en: &'a str, zh: &'a str) -> &'a str {
+        match self {
+            Language::En => en,
+            Language::Zh => zh,
+        }
+    }
+
+    /// Words of the wallet ([`airkeys_wallet::Text`]) in this language.
+    pub fn of(self, t: &airkeys_wallet::Text) -> String {
+        self.pick(&t.en, &t.zh).to_string()
+    }
 }
 
 /// The screen to draw, with everything it shows.

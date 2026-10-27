@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
  * 720p Y′CbCr frames handed to the core, which decides everything else. When the core is still
  * busy with one frame, CameraX drops the next (keep-only-latest), so scanning paces itself.
  */
-class ScanCamera(private val owner: LifecycleOwner, private val onFrame: (CameraFrame) -> Unit, private val onError: (String) -> Unit) {
+class ScanCamera(private val owner: LifecycleOwner, private val onFrame: (CameraFrame) -> Unit, private val onError: (detail: String) -> Unit) {
     private val worker = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
     private var analysis: ImageAnalysis? = null
@@ -56,7 +56,7 @@ class ScanCamera(private val owner: LifecycleOwner, private val onFrame: (Camera
                 p.unbindAll()
                 p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
             } catch (e: Exception) {
-                onError("The camera could not start: ${e.message ?: e.javaClass.simpleName}")
+                onError(e.message ?: e.javaClass.simpleName)
             }
         }, ContextCompat.getMainExecutor(context))
     }

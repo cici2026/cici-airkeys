@@ -172,14 +172,16 @@ pub fn valid_id(id: &str) -> bool {
 }
 
 fn take<T: DeserializeOwned>(map: &mut Map<String, Value>, key: &str) -> Result<T> {
-    let Some(v) = map.remove(key) else { bail!("The message has no “{key}”.") };
+    let Some(v) = map.remove(key) else {
+        bail!("The message has no “{key}”.", "消息里没有“{key}”。")
+    };
     serde_json::from_value(v)
-        .map_err(|e| crate::Error(format!("“{key}” is not valid: {}.", shown(&e.to_string()))))
+        .map_err(|e| crate::err!("“{key}” is not valid: {}.", "“{key}”无效：{}。", shown(&e.to_string())))
 }
 
 fn rest<T: DeserializeOwned>(map: Map<String, Value>) -> Result<T> {
     serde_json::from_value(Value::Object(map))
-        .map_err(|e| crate::Error(format!("The message is not valid: {}.", shown(&e.to_string()))))
+        .map_err(|e| crate::err!("The message is not valid: {}.", "消息无效：{}。", shown(&e.to_string())))
 }
 
 impl Message {
@@ -187,34 +189,40 @@ impl Message {
     /// decided by [`crate::review::review`].
     pub fn parse(bytes: &[u8]) -> Result<Message> {
         if bytes.len() > MAX_MESSAGE {
-            bail!("The message is larger than 1 MiB.");
+            bail!("The message is larger than 1 MiB.", "消息超过 1 MiB。");
         }
         let Ok(Value::Object(mut map)) = serde_json::from_slice::<Value>(bytes) else {
-            bail!("This is not an Airkeys message.");
+            bail!("This is not an Airkeys message.", "这不是 Airkeys 消息。");
         };
         match map.remove("airkeys") {
             Some(Value::Number(n)) if n.as_u64() == Some(VERSION) => {}
             Some(Value::Number(n)) => {
-                bail!("This message uses Airkeys protocol version {n}. This app speaks version {VERSION}.")
+                bail!(
+                    "This message uses Airkeys protocol version {n}. This app speaks version {VERSION}.",
+                    "这条消息使用 Airkeys 协议版本 {n}，本应用使用版本 {VERSION}。"
+                )
             }
-            _ => bail!("This is not an Airkeys message."),
+            _ => bail!("This is not an Airkeys message.", "这不是 Airkeys 消息。"),
         }
         let kind: String = take(&mut map, "type")?;
         let message = match kind.as_str() {
             "accounts" => {
                 let accounts: Vec<Account> = take(&mut map, "accounts")?;
                 if !(1..=MAX_ACCOUNTS).contains(&accounts.len()) {
-                    bail!("An accounts message lists 1 to {MAX_ACCOUNTS} accounts.");
+                    bail!(
+                        "An accounts message lists 1 to {MAX_ACCOUNTS} accounts.",
+                        "账户消息应列出 1 到 {MAX_ACCOUNTS} 个账户。"
+                    );
                 }
                 if let Some(k) = map.keys().next() {
-                    bail!("The message has an unknown field “{}”.", shown(k));
+                    bail!("The message has an unknown field “{}”.", "消息里有未知字段“{}”。", shown(k));
                 }
                 Message::Accounts(accounts)
             }
             "sign" => {
                 let id: String = take(&mut map, "id")?;
                 if !valid_id(&id) {
-                    bail!("The request id is not valid.");
+                    bail!("The request id is not valid.", "请求 id 无效。");
                 }
                 let network: Network = take(&mut map, "network")?;
                 let from: Source = take(&mut map, "from")?;
@@ -225,7 +233,9 @@ impl Message {
                 Message::Sign(SignRequest { id, from, body })
             }
             "signed" => Message::Signed(rest(map)?),
-            other => bail!("“{}” is not an Airkeys message type.", shown(other)),
+            other => {
+                bail!("“{}” is not an Airkeys message type.", "“{}”不是 Airkeys 消息类型。", shown(other))
+            }
         };
         Ok(message)
     }
@@ -290,7 +300,7 @@ mod tests {
 
     #[test]
     fn envelope_rules() {
-        let e = |s: &str| Message::parse(s.as_bytes()).err().unwrap().0;
+        let e = |s: &str| Message::parse(s.as_bytes()).err().unwrap().en;
         assert!(e("[]").contains("not an Airkeys"));
         assert!(e(r#"{"type":"accounts"}"#).contains("not an Airkeys"));
         assert!(e(r#"{"airkeys":2,"type":"accounts"}"#).contains("version 2"));

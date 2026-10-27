@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Airkeys</string>
 	<key>CFBundleExecutable</key>
@@ -12,6 +12,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -25,9 +30,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Airkeys checks that Bluetooth is off — it works only on a phone with every radio off. It never uses Bluetooth.</string>
+	<string>Airkeys checks that Bluetooth is off, as it works only with every radio off. It never uses Bluetooth.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Airkeys reads codes with the camera: the web app's, or your SeedQR. Images never leave this phone and are not stored.</string>
+	<string>Airkeys reads the web app's codes and your SeedQR with the camera. Images are not stored and never leave this phone.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

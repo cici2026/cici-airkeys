@@ -31,18 +31,34 @@ pub fn checksum(addr: &Address) -> String {
 /// must be the correct EIP-55 checksum.
 pub fn parse_address(s: &str) -> Result<Address> {
     if s.len() > MAX_ADDRESS_LEN {
-        bail!("{} is not an EVM address (0x and 40 hex digits).", shown(s));
+        bail!(
+            "{} is not an EVM address (0x and 40 hex digits).",
+            "{} 不是 EVM 地址（0x 加 40 位十六进制数字）。",
+            shown(s)
+        );
     }
     let Some(body) = s.strip_prefix("0x").filter(|b| b.len() == 40) else {
-        bail!("{} is not an EVM address (0x and 40 hex digits).", shown(s));
+        bail!(
+            "{} is not an EVM address (0x and 40 hex digits).",
+            "{} 不是 EVM 地址（0x 加 40 位十六进制数字）。",
+            shown(s)
+        );
     };
     let Some(bytes) = unhex(&body.to_ascii_lowercase()) else {
-        bail!("{} is not an EVM address (0x and 40 hex digits).", shown(s));
+        bail!(
+            "{} is not an EVM address (0x and 40 hex digits).",
+            "{} 不是 EVM 地址（0x 加 40 位十六进制数字）。",
+            shown(s)
+        );
     };
     let addr: Address = bytes.try_into().unwrap();
     let mixed = body.chars().any(|c| c.is_ascii_lowercase()) && body.chars().any(|c| c.is_ascii_uppercase());
     if mixed && checksum(&addr) != s {
-        bail!("{} has a wrong checksum: a character is mistyped.", shown(s));
+        bail!(
+            "{} has a wrong checksum: a character is mistyped.",
+            "{} 的校验和不对：有字符输错了。",
+            shown(s)
+        );
     }
     Ok(addr)
 }

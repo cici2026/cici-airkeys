@@ -9,6 +9,7 @@ options:
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+  developmentLanguage: en
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
@@ -34,6 +35,12 @@ targets:
       path: Airkeys/Resources/Info.plist
       properties:
         CFBundleDisplayName: Airkeys
+        CFBundleDevelopmentRegion: en
+        # the languages Airkeys speaks: iOS offers them in Settings › Airkeys › Language, and the
+        # shell follows the one chosen (Airkeys/Resources/zh-Hans.lproj: the permission prompts)
+        CFBundleLocalizations:
+          - en
+          - zh-Hans
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
@@ -43,8 +50,8 @@ targets:
         UIUserInterfaceStyle: Dark
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NSCameraUsageDescription: "Airkeys reads codes with the camera: the web app's, or your SeedQR. Images never leave this phone and are not stored."
-        NSBluetoothAlwaysUsageDescription: Airkeys checks that Bluetooth is off — it works only on a phone with every radio off. It never uses Bluetooth.
+        NSCameraUsageDescription: "Airkeys reads the web app's codes and your SeedQR with the camera. Images are not stored and never leave this phone."
+        NSBluetoothAlwaysUsageDescription: Airkeys checks that Bluetooth is off, as it works only with every radio off. It never uses Bluetooth.
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

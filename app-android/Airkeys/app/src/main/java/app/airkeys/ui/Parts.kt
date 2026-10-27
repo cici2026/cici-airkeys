@@ -102,7 +102,7 @@ fun Page(
 ) {
     Column(Modifier.fillMaxSize().background(Ink.bg).systemBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) IconAction(Icons.back, "Back", onBack) else Spacer(Modifier.width(12.dp))
+            if (onBack != null) IconAction(Icons.back, tr("Back", "返回"), onBack) else Spacer(Modifier.width(12.dp))
             Text(title ?: "", style = Type.heading.copy(fontSize = 17.sp), modifier = Modifier.weight(1f).padding(start = 4.dp), maxLines = 1)
             trailing()
         }

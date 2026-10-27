@@ -54,7 +54,7 @@ final class FlowTests: XCTestCase {
         XCTAssertEqual(field.value as? String, String(repeating: "abandon ", count: 11) + "abou", "finished words are completed")
         shot("i02-import")
         app.buttons["Continue"].tap()
-        XCTAssertTrue(app.staticTexts["Only if your wallet has one — most do not. Leave it empty otherwise."].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Leave this empty unless your wallet has one."].waitForExistence(timeout: 3))
         shot("i03-passphrase")
         app.buttons["Open wallet"].tap()
 
@@ -75,7 +75,7 @@ final class FlowTests: XCTestCase {
         shot("i04-connect")
         app.buttons["Show code"].tap()
         XCTAssertTrue(app.staticTexts["Show this to the web app"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Accounts #0 to #99 · Bitcoin, Ethereum & EVM. Addresses only: no public key leaves this phone."].exists, "all 100 accounts, by default")
+        XCTAssertTrue(app.staticTexts["Accounts #0 to #99 · Bitcoin, Ethereum & EVM · addresses only"].exists, "all 100 accounts, by default")
         // all 100 accounts take about 10 frames of the code: enough screenshots to read it
         if Self.shooting {
             for n in 0 ..< 24 {
@@ -134,6 +134,63 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Valid phrase"].waitForExistence(timeout: 3), "the tapped word was replaced and completed")
         XCTAssertEqual(field.value as? String, String(repeating: "abandon ", count: 11) + "about ")
         shot("i06-word-fixed")
+    }
+
+    /// A phone in Simplified Chinese: the shell's words and the core's, both in Chinese, through
+    /// the same import, code and review as in English.
+    func testChinese() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launchEnvironment["AIRKEYS_DELIVER"] = Data(Self.request.utf8).base64EncodedString()
+        app.launchEnvironment["AIRKEYS_ASSUME_OFFLINE"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.buttons["输入助记词"].waitForExistence(timeout: 5), "the welcome screen in Chinese")
+        XCTAssertTrue(app.buttons["扫描 SeedQR"].exists)
+        XCTAssertTrue(app.staticTexts["不存储"].exists)
+        shot("zh01-welcome")
+        app.buttons["输入助记词"].tap()
+        XCTAssertTrue(app.staticTexts["输入你的助记词"].waitForExistence(timeout: 3))
+        let field = app.textViews["abandon ability …"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        field.tap()
+        field.typeText(String(repeating: "aban ", count: 11) + "abou")
+        XCTAssertTrue(app.buttons["about"].waitForExistence(timeout: 3), "the last word is suggested")
+        XCTAssertEqual(field.value as? String, String(repeating: "abandon ", count: 11) + "abou", "finished words are completed")
+        XCTAssertTrue(app.staticTexts["12 个词"].exists)
+        shot("zh02-import")
+        app.buttons["继续"].tap()
+        XCTAssertTrue(app.staticTexts["如果钱包没有密码短语，这里留空。"].waitForExistence(timeout: 3))
+        app.buttons["打开钱包"].tap()
+
+        // the core's words (the account rows) and the shell's (buttons, the wheel's unit)
+        XCTAssertTrue(app.staticTexts["Ethereum 和 EVM"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["ETH、ERC-20 代币"].exists)
+        XCTAssertTrue(app.staticTexts["0xF23521DE…7Bf5e158"].exists, "account #0 is the known address")
+        XCTAssertTrue(app.staticTexts["账户"].exists)
+        XCTAssertTrue(app.buttons["连接"].exists)
+        XCTAssertTrue(app.buttons["扫描请求"].exists)
+        shot("zh03-home")
+        app.buttons["连接"].tap()
+        XCTAssertTrue(app.staticTexts["全部 100 个账户"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["向网页助手显示你的账户"].exists)
+        shot("zh04-connect")
+        app.buttons["显示动态码"].tap()
+        XCTAssertTrue(app.staticTexts["给网页助手扫描"].waitForExistence(timeout: 3))
+        shot("zh05-code")
+        app.buttons["完成"].tap()
+
+        app.buttons["扫描请求"].tap()
+        XCTAssertTrue(app.staticTexts["100 USDC"].waitForExistence(timeout: 5), "the delivered request is reviewed")
+        let hold = app.buttons["hold-to-confirm"]
+        XCTAssertEqual(hold.label, "按住签名 2 笔交易")
+        shot("zh06-review")
+        hold.press(forDuration: 1.6)
+        XCTAssertTrue(app.staticTexts["已签名"].waitForExistence(timeout: 3))
+        app.buttons["完成"].tap()
+        XCTAssertTrue(app.buttons["关闭钱包"].waitForExistence(timeout: 3))
+        app.buttons["关闭钱包"].tap()
+        XCTAssertTrue(app.buttons["输入助记词"].waitForExistence(timeout: 3), "closing forgets the wallet")
     }
 
     /// On a real phone: what the app shows first, and the radios it reports (the simulator shares

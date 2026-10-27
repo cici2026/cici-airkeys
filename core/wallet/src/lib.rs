@@ -56,25 +56,78 @@ impl fmt::Display for Network {
     }
 }
 
-/// Why something was refused. The text is shown to the person as it is, so it is a whole
-/// sentence in plain English.
+/// Words for the person, in each language the phone speaks: English and Simplified Chinese.
+/// Shown as it is, so each is a whole sentence (or a label). `Display` prints the English.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
+pub struct Text {
+    pub en: String,
+    pub zh: String,
+}
+
+impl Text {
+    /// Text that reads the same in every language: a name, a number, an amount with its unit.
+    pub fn same(s: impl Into<String>) -> Text {
+        let s = s.into();
+        Text { en: s.clone(), zh: s }
+    }
+}
+
+impl fmt::Display for Text {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.en)
+    }
+}
+
+/// Why something was refused, in English and in Simplified Chinese. Each is shown to the person
+/// as it is, so each is a whole sentence. `Display` prints the English.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Error(pub String);
+pub struct Error {
+    pub en: String,
+    pub zh: String,
+}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.en)
     }
 }
 
 impl std::error::Error for Error {}
 
+impl From<Text> for Error {
+    fn from(t: Text) -> Error {
+        Error { en: t.en, zh: t.zh }
+    }
+}
+
+impl From<Error> for Text {
+    fn from(e: Error) -> Text {
+        Text { en: e.en, zh: e.zh }
+    }
+}
+
 /// A result whose error is a sentence for the person ([`Error`]).
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// `Err(Error(format!(…)))`.
+/// `text!("English {x}", "中文 {x}", args…)`: a [`Text`] from two format strings that take the
+/// same arguments. Both are required, so a missing translation does not compile; a Chinese
+/// sentence that leaves out an argument does not compile either.
+#[macro_export]
+macro_rules! text {
+    ($en:literal, $zh:literal $(, $arg:expr)* $(,)?) => {
+        $crate::Text { en: format!($en $(, $arg)*), zh: format!($zh $(, $arg)*) }
+    };
+}
+
+/// `err!("English", "中文", args…)`: an [`Error`], as [`text!`] builds a [`Text`].
+macro_rules! err {
+    ($($t:tt)*) => { $crate::Error::from($crate::text!($($t)*)) };
+}
+pub(crate) use err;
+
+/// `bail!("English", "中文", args…)`: `return Err(err!(…))`.
 macro_rules! bail {
-    ($($t:tt)*) => { return Err($crate::Error(format!($($t)*))) };
+    ($($t:tt)*) => { return Err($crate::err!($($t)*)) };
 }
 pub(crate) use bail;
 
